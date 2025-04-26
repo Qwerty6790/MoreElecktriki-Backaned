@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "web-app-service/index.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "emailer-service/index.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/email/(.*)",
+      "dest": "emailer-service/index.js"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "web-app-service/index.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "web-app-service/index.js"
+    }
+  ]
+}
