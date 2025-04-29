@@ -4,16 +4,11 @@ const streamifier = require('streamifier');
 
 const validSources = [
     'OdeonLightProduct','StluceProduct','FavouriteProduct', 'LightStarProduct', 'MaytoniProduct',
-    'ElektroStandardProduct', 'DenkirsProduct', 'WerkelProduct', 'KinkLightProduct', 'NovotechLightProduct','LumionProduct','ArtelampProduct','SonexProduct','VoltumProduct', 'ЧТКProduct' 
+    'ElektroStandardProduct', 'DenkirsProduct', 'WerkelProduct', 'KinkLightProduct', 'NovotechLightProduct','LumionProduct','ArtelampProduct','SonexProduct','VoltumProduct', 'ЧТКProduct', 'DonelProduct' 
 ];
 
 const categorySuggestions = [
-    { category: 'Потолочная Люстра', keywords: ['Люстра'] },
-    { category: 'Бра', keywords: ['бра'] },
-    { category: 'Настольные Лампы', keywords: ['лампа'] },
-    { category: 'Светильники', keywords: ['светильник'] },
-    { category: 'Трековые светильники', keywords: ['трек'] },
-    { category: 'Споты', keywords: ['спот'] },
+   
 ];
 
 cloudinary.config({
