@@ -71,9 +71,9 @@ const uploadProductsByArtelamp = async () => {
                 imageAddress: productData.imageAddress
             });
 
-            // Skip rows with missing mandatory data
-            if (!productData.article || !productData.name || !productData.price) {
-                console.warn('Skipping row due to missing mandatory data:', row);
+            // Skip rows with missing mandatory data or zero stock
+            if (!productData.article || !productData.name || !productData.price || productData.stock <= 0) {
+                console.warn('Skipping row due to missing mandatory data or zero stock:', row);
                 continue;
             }
 

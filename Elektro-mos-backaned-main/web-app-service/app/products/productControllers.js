@@ -4,7 +4,7 @@ const streamifier = require('streamifier');
 
 const validSources = [
     'OdeonLightProduct','StluceProduct','FavouriteProduct', 'LightStarProduct', 'MaytoniProduct',
-    'ElektroStandardProduct', 'DenkirsProduct', 'WerkelProduct', 'KinkLightProduct', 'NovotechLightProduct','LumionProduct','ArtelampProduct','SonexProduct','VoltumProduct', 'ЧТКProduct', 'DonelProduct' 
+    'ElektroStandardProduct', 'DenkirsProduct', 'WerkelProduct', 'KinkLightProduct', 'NovotechLightProduct','LumionProduct','ArtelampProduct','SonexProduct','VoltumProduct', 'ЧТКProduct', 'DonelProduct','DonelluxProduct' 
 ];
 
 const categorySuggestions = [
@@ -154,7 +154,8 @@ exports.getProducts = async (req, res) => {
             source, 
             description, 
             material,
-            showHidden = false
+            showHidden = false,
+            randomize = false
         } = req.query;
         
         const query = buildQuery({ 
@@ -168,19 +169,44 @@ exports.getProducts = async (req, res) => {
         });
 
         // Получаем товары и их общее количество
-        const [products, totalProducts] = await Promise.all([
-            ProductModel.find(query).skip((page - 1) * limit).limit(+limit),
-            ProductModel.countDocuments(query)
-        ]);
-
-        // Ответ с товарами
-        res.json({
-            totalProducts,
-            totalPages: Math.ceil(totalProducts / limit),
-            currentPage: +page,
-            products,
-            suggestedCategories: findSuggestedCategories(name)  // Рекомендуемые категории
-        });
+        let productsQuery = ProductModel.find(query);
+        
+        // Если запрошена случайная сортировка, используем MongoDB aggregation с $sample
+        if (randomize === 'true') {
+            // Получаем общее количество товаров для пагинации
+            const totalProducts = await ProductModel.countDocuments(query);
+            
+            // Используем MongoDB aggregation для случайной выборки
+            const randomProducts = await ProductModel.aggregate([
+                { $match: query },
+                { $sample: { size: parseInt(limit) } },
+                { $skip: (page - 1) * limit }
+            ]);
+            
+            // Ответ с товарами в случайном порядке
+            return res.json({
+                totalProducts,
+                totalPages: Math.ceil(totalProducts / limit),
+                currentPage: +page,
+                products: randomProducts,
+                suggestedCategories: findSuggestedCategories(name)
+            });
+        } else {
+            // Стандартная пагинация без случайной сортировки
+            const [products, totalProducts] = await Promise.all([
+                productsQuery.skip((page - 1) * limit).limit(+limit),
+                ProductModel.countDocuments(query)
+            ]);
+            
+            // Ответ с товарами
+            res.json({
+                totalProducts,
+                totalPages: Math.ceil(totalProducts / limit),
+                currentPage: +page,
+                products,
+                suggestedCategories: findSuggestedCategories(name)
+            });
+        }
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

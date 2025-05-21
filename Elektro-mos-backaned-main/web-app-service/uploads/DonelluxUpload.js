@@ -39,7 +39,7 @@ async function fetchXML(url) {
 async function uploadProductsDonel() {
   await connectToDatabase();
 
-  const url = 'https://donel.su/include/yml.php';
+  const url = 'https://www.donolux.ru/include/uyml.php';
   const parsed = await fetchXML(url);
 
   // Находим корневой узел (yml_catalog, data, и т.п.)
@@ -75,7 +75,7 @@ async function uploadProductsDonel() {
       price,
       stock,
       imageAddress: images,
-      source: 'DonelProduct',
+      source: 'DonelluxProduct',
     };
 
     try {

@@ -31,7 +31,7 @@ const uploadProductsByLightStar = async () => {
         // Используем normalizeTags, чтобы привести имена тегов к нижнему регистру
         xml2js.parseString(
             xmlData,
-            { explicitArray: false, trim: true, normalizeTags: true },
+            { explicitArray: false, trim: true, normalizeTags: true, normalize: true, attrNameProcessors: [] },
             async (err, result) => {
                 if (err) {
                     throw new Error('Ошибка парсинга XML: ' + err.message);
@@ -43,13 +43,93 @@ const uploadProductsByLightStar = async () => {
                     : [result.таблица.element];
 
                 const updatePromises = products.map(lightData => {
-                    // Лог для отладки
+                    // Расширенный лог для отладки
                     console.log('Parsed lightData:', lightData);
+                    
+                    // Детальный лог поля цены для анализа его структуры
+                    if (lightData.цены) {
+                        console.log('Структура поля цены:', JSON.stringify(lightData.цены, null, 2));
+                        
+                        // Вывод всех атрибутов, если они существуют
+                        if (lightData.цены.$) {
+                            console.log('Атрибуты цены:', JSON.stringify(lightData.цены.$, null, 2));
+                            console.log('Доступные ключи в атрибутах:', Object.keys(lightData.цены.$));
+                        }
+                    }
 
-                    // Извлечение цены и остатка
-                    const retailPrice = lightData.цены?.$?.розничная
-                        ? parseFloat(lightData.цены.$.розничная)
-                        : 0;
+                    // Более надежное извлечение цены
+                    let retailPrice = 0;
+                    let priceFound = false;
+                    
+                    // Сначала попытаемся извлечь цену из атрибутов тега "цены"
+                    if (lightData.цены && typeof lightData.цены === 'object' && lightData.цены.$) {
+                        const priceAttrs = lightData.цены.$;
+                        
+                        // Перебираем все возможные варианты написания атрибута "Розничная"
+                        const possibleKeys = ['розничная', 'Розничная', 'РОЗНИЧНАЯ'];
+                        
+                        for (const key in priceAttrs) {
+                            if (possibleKeys.includes(key) || possibleKeys.some(pk => key.toLowerCase() === pk.toLowerCase())) {
+                                retailPrice = parseFloat(priceAttrs[key]);
+                                console.log(`Цена извлечена из атрибута ${key}:`, retailPrice);
+                                priceFound = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Если цена не найдена в атрибутах, пробуем другие варианты
+                    if (!priceFound) {
+                        if (lightData.цены && lightData.цены.$ && lightData.цены.$.розничная) {
+                            retailPrice = parseFloat(lightData.цены.$.розничная);
+                            console.log('Цена извлечена из цены.$.розничная:', retailPrice);
+                        } else if (lightData.цены && lightData.цены.$ && lightData.цены.$.Розничная) {
+                            retailPrice = parseFloat(lightData.цены.$.Розничная);
+                            console.log('Цена извлечена из цены.$.Розничная:', retailPrice);
+                        } else if (lightData.цены && lightData.цены.розничная) {
+                            retailPrice = parseFloat(lightData.цены.розничная);
+                            console.log('Цена извлечена из цены.розничная:', retailPrice);
+                        } else if (lightData.цена) {
+                            retailPrice = parseFloat(lightData.цена);
+                            console.log('Цена извлечена из цена:', retailPrice);
+                        } else if (lightData.розничнаяцена) {
+                            retailPrice = parseFloat(lightData.розничнаяцена);
+                            console.log('Цена извлечена из розничнаяцена:', retailPrice);
+                        } else if (lightData.price) {
+                            retailPrice = parseFloat(lightData.price);
+                            console.log('Цена извлечена из price:', retailPrice);
+                        } else if (lightData.цены && Array.isArray(lightData.цены) && lightData.цены.length > 0) {
+                            // Если цены представлены как массив
+                            const firstPrice = lightData.цены[0];
+                            if (typeof firstPrice === 'object' && firstPrice.розничная) {
+                                retailPrice = parseFloat(firstPrice.розничная);
+                                console.log('Цена извлечена из массива цен:', retailPrice);
+                            } else if (typeof firstPrice === 'string' || typeof firstPrice === 'number') {
+                                retailPrice = parseFloat(firstPrice);
+                                console.log('Цена извлечена из первого элемента массива цен:', retailPrice);
+                            }
+                        } else {
+                            // Поиск цены в любом поле, которое содержит "цена" в своем имени
+                            for (const key in lightData) {
+                                if (key.toLowerCase().includes('цена') || key.toLowerCase().includes('price')) {
+                                    retailPrice = parseFloat(lightData[key]);
+                                    console.log(`Цена извлечена из поля ${key}:`, retailPrice);
+                                    break;
+                                }
+                            }
+                            
+                            if (retailPrice === 0) {
+                                console.log('Не удалось найти цену в данном товаре');
+                            }
+                        }
+                    }
+                    
+                    // Проверка на NaN и отрицательные значения
+                    if (isNaN(retailPrice) || retailPrice < 0) {
+                        retailPrice = 0;
+                        console.log('Цена была некорректной, установлена в 0');
+                    }
+                    
                     const stock = lightData.остаток
                         ? parseInt(lightData.остаток) || 0
                         : 0;

@@ -5,7 +5,7 @@ const { ProductModel } = require('../app/products/productModel'); // Ensure this
 
 // MongoDB connection
 const connectToDatabase = async () => {
-    const mongoURI = 'mongodb+srv://MoreSvet:Qwerty670Im@cluster0moresvet.bgvlr.mongodb.net/MoreSvet?retryWrites=true&w=majority&appName=Cluster0MoreSvet'; // Replace with your MongoDB URI
+    const mongoURI = 'mongodb+srv://Elecktro-mos:j13hvAQNBpEVEqdo@elecktro-mos.o6boe.mongodb.net/Elecktro-mos?retryWrites=true&w=majority&appName=Elecktro-mos'; // Replace with your MongoDB URI
 
     try {
         await mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
@@ -47,10 +47,91 @@ const uploadProductsByMaytoni = async () => {
         const products = result.yml_catalog.shop[0].offers[0].offer;
 
         for (const lightData of products) {
-            // Extract price from `priceWB`
-            const retailPrice = lightData.priceWB?.[0]
-                ? parseFloat(lightData.priceWB[0])
-                : 0;
+            // Расширенный лог для отладки
+            console.log('Parsed Maytoni product:', JSON.stringify(lightData, null, 2));
+            
+            // Более надежное извлечение цены
+            let retailPrice = 0;
+            
+            // Попытка извлечь цену из разных возможных форматов
+            if (lightData.priceWB && lightData.priceWB[0]) {
+                retailPrice = parseFloat(lightData.priceWB[0]);
+                console.log('Цена извлечена из priceWB:', retailPrice);
+            } else if (lightData.price && lightData.price[0]) {
+                retailPrice = parseFloat(lightData.price[0]);
+                console.log('Цена извлечена из price:', retailPrice);
+            } else if (lightData.prices && lightData.prices[0] && lightData.prices[0].price && lightData.prices[0].price[0]) {
+                retailPrice = parseFloat(lightData.prices[0].price[0]);
+                console.log('Цена извлечена из prices[0].price:', retailPrice);
+            } else if (lightData.oldprice && lightData.oldprice[0]) {
+                retailPrice = parseFloat(lightData.oldprice[0]);
+                console.log('Цена извлечена из oldprice:', retailPrice);
+            } else {
+                // Поиск любого поля, которое может содержать цену
+                for (const key in lightData) {
+                    if (key.toLowerCase().includes('price') || key.toLowerCase().includes('цена')) {
+                        if (Array.isArray(lightData[key]) && lightData[key].length > 0) {
+                            retailPrice = parseFloat(lightData[key][0]);
+                            console.log(`Цена извлечена из поля ${key}:`, retailPrice);
+                            break;
+                        }
+                    }
+                }
+                
+                // Проверка на параметры, которые могут содержать цену
+                if (retailPrice === 0 && Array.isArray(lightData.param)) {
+                    const priceParam = lightData.param.find(param => 
+                        (param.$ && (param.$.name.toLowerCase().includes('цена') || param.$.name.toLowerCase().includes('price'))) ||
+                        (param.name && (param.name[0].toLowerCase().includes('цена') || param.name[0].toLowerCase().includes('price')))
+                    );
+                    
+                    if (priceParam) {
+                        if (priceParam._) {
+                            retailPrice = parseFloat(priceParam._);
+                            console.log('Цена извлечена из параметра:', retailPrice);
+                        } else if (priceParam.value && priceParam.value[0]) {
+                            retailPrice = parseFloat(priceParam.value[0]);
+                            console.log('Цена извлечена из параметра.value:', retailPrice);
+                        }
+                    }
+                }
+                
+                // Проверка вложенных объектов для нахождения цены
+                if (retailPrice === 0) {
+                    const searchPriceInObject = (obj, path = '') => {
+                        for (const key in obj) {
+                            if (key.toLowerCase().includes('price') || key.toLowerCase().includes('цена')) {
+                                if (Array.isArray(obj[key]) && obj[key].length > 0) {
+                                    retailPrice = parseFloat(obj[key][0]);
+                                    console.log(`Цена извлечена из вложенного поля ${path}.${key}:`, retailPrice);
+                                    return true;
+                                } else if (typeof obj[key] === 'string' || typeof obj[key] === 'number') {
+                                    retailPrice = parseFloat(obj[key]);
+                                    console.log(`Цена извлечена из вложенного поля ${path}.${key}:`, retailPrice);
+                                    return true;
+                                }
+                            } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+                                if (searchPriceInObject(obj[key], path ? `${path}.${key}` : key)) {
+                                    return true;
+                                }
+                            }
+                        }
+                        return false;
+                    };
+                    
+                    searchPriceInObject(lightData);
+                }
+                
+                if (retailPrice === 0) {
+                    console.log('Не удалось найти цену в данном товаре');
+                }
+            }
+            
+            // Проверка на NaN и отрицательные значения
+            if (isNaN(retailPrice) || retailPrice < 0) {
+                retailPrice = 0;
+                console.log('Цена была некорректной, установлена в 0');
+            }
 
             // Extract all image URLs
             const imageUrls = Array.isArray(lightData.picture) && lightData.picture.length > 0
