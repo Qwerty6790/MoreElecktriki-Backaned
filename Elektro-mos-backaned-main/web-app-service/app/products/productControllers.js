@@ -155,7 +155,7 @@ exports.getProducts = async (req, res) => {
             description, 
             material,
             showHidden = false,
-            randomize = true
+            randomize = 'true'  // Устанавливаем по умолчанию значение 'true' как строку
         } = req.query;
         
         const query = buildQuery({ 
@@ -171,16 +171,16 @@ exports.getProducts = async (req, res) => {
         // Получаем товары и их общее количество
         let productsQuery = ProductModel.find(query);
         
-        // Если запрошена случайная сортировка, используем MongoDB aggregation с $sample
-        if (randomize === 'true') {
+        // Если запрошена случайная сортировка или не указано иное, используем MongoDB aggregation с $sample
+        // Для отключения случайной сортировки нужно явно указать randomize=false
+        if (randomize !== 'false') {
             // Получаем общее количество товаров для пагинации
             const totalProducts = await ProductModel.countDocuments(query);
             
             // Используем MongoDB aggregation для случайной выборки
             const randomProducts = await ProductModel.aggregate([
                 { $match: query },
-                { $sample: { size: parseInt(limit) } },
-                { $skip: (page - 1) * limit }
+                { $sample: { size: parseInt(limit) } }
             ]);
             
             // Ответ с товарами в случайном порядке
