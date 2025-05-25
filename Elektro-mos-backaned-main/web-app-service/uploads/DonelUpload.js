@@ -67,6 +67,12 @@ async function uploadProductsDonel() {
       console.warn(`⚠ Пропуск оффера ID=${id} — нет названия или артикула`);
       continue;
     }
+    
+    // Пропускаем товары с именем N96
+    if (name === 'N96') {
+      console.warn(`⚠ Пропуск оффера ID=${id} с именем N96`);
+      continue;
+    }
 
     const productData = {
       article,

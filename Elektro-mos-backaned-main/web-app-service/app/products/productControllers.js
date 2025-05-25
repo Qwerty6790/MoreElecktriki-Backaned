@@ -117,12 +117,13 @@ const findSuggestedCategories = (name) =>
         keywords.some(keyword => name.toLowerCase().includes(keyword))
     ).map(({ category }) => category);
 
-const buildQuery = ({ name, minPrice, maxPrice, source, description, material, showHidden = false }) => {
+const buildQuery = ({ name, minPrice, maxPrice, source, description, material, article, showHidden = false }) => {
     const query = {
         name: new RegExp(name.split(',')[0] || '', 'i'),  // Регулярное выражение для названия
         price: { $gte: parseFloat(minPrice) || 0, $lte: parseFloat(maxPrice) || Infinity },
         ...(description && { description: new RegExp(description, 'i') }),
-        ...(material && { description: new RegExp(material, 'i') })
+        ...(material && { description: new RegExp(material, 'i') }),
+        ...(article && { article: new RegExp(article, 'i') })
     };
 
     // Для фильтрации по бренду
@@ -154,6 +155,7 @@ exports.getProducts = async (req, res) => {
             source, 
             description, 
             material,
+            article,
             showHidden = false,
             randomize = 'true'  // Устанавливаем по умолчанию значение 'true' как строку
         } = req.query;
@@ -165,6 +167,7 @@ exports.getProducts = async (req, res) => {
             source, 
             description, 
             material,
+            article,
             showHidden: showHidden === 'true'
         });
 
