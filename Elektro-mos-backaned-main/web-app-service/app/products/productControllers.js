@@ -515,3 +515,190 @@ exports.createProduct = async (req, res) => {
       res.status(500).json({ message: error.message });
     }
   };
+
+// Функция для категоризации товаров серии W55 по типу установки
+function categorizeW55Products(products) {
+    const categories = {
+        'Накладные розетки W55': [],
+        'Встроенный монтаж W55': []
+    };
+    
+    products.forEach(product => {
+        const productName = product.name.toLowerCase();
+        const productDescription = (product.description || '').toLowerCase();
+        const fullText = `${productName} ${productDescription}`;
+        
+        // Ключевые слова для накладного монтажа
+        const surfaceMountKeywords = [
+            'накладная', 'накладной',
+        ];
+        
+        // Ключевые слова для скрытого/встроенного монтажа
+        const flushMountKeywords = [
+            'для скрытой установки', 'скрытой установки', 
+        ];
+        
+        // Проверяем на накладной монтаж
+        const isSurfaceMount = surfaceMountKeywords.some(keyword => 
+            fullText.includes(keyword)
+        );
+        
+        // Проверяем на встроенный/скрытый монтаж
+        const isFlushMount = flushMountKeywords.some(keyword => 
+            fullText.includes(keyword)
+        );
+        
+        // Распределяем по категориям с приоритетом для более специфичных ключевых слов
+        if (fullText.includes('для скрытой установки') || fullText.includes('рамка с клавишей')) {
+            // Высокий приоритет для явных указаний на скрытую установку
+            categories['Встроенный монтаж W55'].push(product);
+        } else if (isSurfaceMount && !isFlushMount) {
+            // Накладные товары
+            categories['Накладные розетки W55'].push(product);
+        } else if (isFlushMount && !isSurfaceMount) {
+            // Встроенные товары
+            categories['Встроенный монтаж W55'].push(product);
+        } else if (isSurfaceMount && isFlushMount) {
+            // Если есть оба типа ключевых слов, смотрим на более специфичные
+            if (fullText.includes('накладная') || fullText.includes('накладной')) {
+                categories['Накладные розетки W55'].push(product);
+            } else {
+                categories['Встроенный монтаж W55'].push(product);
+            }
+        } else {
+            // По умолчанию определяем по общим словам в названии
+            if (fullText.includes('розетка') || fullText.includes('выключател')) {
+                // Если не можем определить точно, добавляем в накладные
+                categories['Накладные розетки W55'].push(product);
+            } else {
+                // Рамки, клавиши и подобное - обычно для скрытой установки
+                categories['Встроенный монтаж W55'].push(product);
+            }
+        }
+    });
+    
+    return categories;
+}
+
+// Контроллер для получения всех товаров W55, отсортированных по категориям
+exports.getW55CategorizedProducts = async (req, res) => {
+    try {
+        const { source, showHidden = false, page = 1, limit = 100 } = req.query;
+        
+        // Строим запрос для поиска товаров W55
+        const query = {
+            name: new RegExp('W55', 'i'),
+            source: source ? { $regex: new RegExp(source, 'i') } : { $in: validSources }
+        };
+        
+        // Фильтрация по видимости
+        if (showHidden !== 'true') {
+            query.visible = { $ne: false };
+        }
+        
+        // Получаем общее количество товаров W55 для пагинации
+        const totalW55Products = await ProductModel.countDocuments(query);
+        
+        // Получаем все товары W55 (для корректной категоризации)
+        const w55Products = await ProductModel.find(query)
+            .skip((page - 1) * limit)
+            .limit(parseInt(limit));
+        
+        if (!w55Products.length) {
+            return res.json({
+                message: 'Товары серии W55 не найдены',
+                categories: {
+                    'Накладные розетки W55': [],
+                    'Встроенный монтаж W55': []
+                },
+                totalProducts: 0,
+                totalW55Products: 0
+            });
+        }
+        
+        // Категоризируем товары
+        const categorizedProducts = categorizeW55Products(w55Products);
+        
+        // Подсчитываем общее количество товаров в каждой категории
+        const totalProducts = Object.values(categorizedProducts).reduce(
+            (sum, categoryProducts) => sum + categoryProducts.length, 0
+        );
+        
+        res.json({
+            message: 'Товары серии W55 успешно категоризированы по типу установки',
+            categories: categorizedProducts,
+            totalProducts,
+            totalW55Products,
+            totalPages: Math.ceil(totalW55Products / limit),
+            currentPage: parseInt(page),
+            categoryStats: {
+                'Накладные розетки W55': categorizedProducts['Накладные розетки W55'].length,
+                'Встроенный монтаж W55': categorizedProducts['Встроенный монтаж W55'].length
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Контроллер для получения товаров W55 по конкретной категории установки
+exports.getW55ProductsByCategory = async (req, res) => {
+    try {
+        const { category, source, showHidden = false, page = 1, limit = 50 } = req.query;
+        
+        if (!category) {
+            return res.status(400).json({
+                message: 'Необходимо указать категорию',
+                availableCategories: ['surface', 'flush', 'накладные', 'встроенные']
+            });
+        }
+        
+        // Базовый запрос для поиска товаров W55
+        const baseQuery = {
+            name: new RegExp('W55', 'i'),
+            source: source ? { $regex: new RegExp(source, 'i') } : { $in: validSources }
+        };
+        
+        // Фильтрация по видимости
+        if (showHidden !== 'true') {
+            baseQuery.visible = { $ne: false };
+        }
+        
+        // Сначала получаем все товары W55, затем фильтруем их
+        const allW55Products = await ProductModel.find(baseQuery);
+        const categorizedProducts = categorizeW55Products(allW55Products);
+        
+        let selectedProducts = [];
+        let categoryName = '';
+        
+        if (category === 'surface' || category === 'накладные') {
+            selectedProducts = categorizedProducts['Накладные розетки W55'];
+            categoryName = 'Накладные розетки W55';
+        } else if (category === 'flush' || category === 'встроенные') {
+            selectedProducts = categorizedProducts['Встроенный монтаж W55'];
+            categoryName = 'Встроенный монтаж W55';
+        } else {
+            return res.status(400).json({
+                message: 'Неверная категория',
+                availableCategories: ['surface', 'flush', 'накладные', 'встроенные']
+            });
+        }
+        
+        // Применяем пагинацию к отфильтрованным товарам
+        const totalProducts = selectedProducts.length;
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + parseInt(limit);
+        const paginatedProducts = selectedProducts.slice(startIndex, endIndex);
+        
+        res.json({
+            message: `Товары категории "${categoryName}" найдены`,
+            category: categoryName,
+            totalProducts,
+            totalPages: Math.ceil(totalProducts / limit),
+            currentPage: parseInt(page),
+            products: paginatedProducts
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
