@@ -5,8 +5,8 @@ const YooKassa  = require('yookassa'); // Импортируем библиот�
 
 // Настройки для ЮKassa
 const yooKassa = new YooKassa({
-    shopId: '/', // Укажите ваш shopId
-    secretKey: '/' // Укажите ваш secretKey
+    shopId: '1108942', // Укажите ваш shopId
+    secretKey: 'test_DXi-fT28EEr4xza_ghdwpaX0UcP1bH__vdEn3PkzRwI' // Укажите ваш secretKey
 });
 
 // Функция для создания заказа и начала оплаты
@@ -41,7 +41,7 @@ exports.addOrderWithPayment = async (req, res) => {
             },
             confirmation: {
                 type: 'redirect', // Пользователь будет перенаправлен для оплаты
-                return_url: `http://localhost:3000/payment-success/${order._id}`
+                return_url: `http://localhost:300/payment-success/${order._id}`
             },
             capture: true, // Автоматическое подтверждение платежа
             description: `Оплата заказа #${order._id}`,
