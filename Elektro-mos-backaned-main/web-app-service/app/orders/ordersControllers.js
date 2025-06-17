@@ -41,7 +41,7 @@ exports.addOrderWithPayment = async (req, res) => {
             },
             confirmation: {
                 type: 'redirect', // Пользователь будет перенаправлен для оплаты
-                return_url: `http://localhost:300/payment-success/${order._id}`
+                return_url: `https://elektromos.ru/payment-success/${order._id}`
             },
             capture: true, // Автоматическое подтверждение платежа
             description: `Оплата заказа #${order._id}`,
