@@ -174,17 +174,32 @@ exports.getProducts = async (req, res) => {
         // Получаем товары и их общее количество
         let productsQuery = ProductModel.find(query);
         
-        // Если запрошена случайная сортировка или не указано иное, используем MongoDB aggregation с $sample
+        // Если запрошена случайная сортировка или не указано иное, используем MongoDB aggregation
         // Для отключения случайной сортировки нужно явно указать randomize=false
         if (randomize !== 'false') {
             // Получаем общее количество товаров для пагинации
             const totalProducts = await ProductModel.countDocuments(query);
             
-            // Используем MongoDB aggregation для случайной выборки
-            const randomProducts = await ProductModel.aggregate([
-                { $match: query },
-                { $sample: { size: parseInt(limit) } }
-            ]);
+            // Определяем размер выборки: не больше доступных товаров и не больше лимита
+            const sampleSize = Math.min(parseInt(limit), totalProducts);
+            
+            let randomProducts = [];
+            
+            if (totalProducts > 0) {
+                if (totalProducts <= parseInt(limit)) {
+                    // Если товаров меньше или равно лимиту, берем все товары и перемешиваем
+                    randomProducts = await ProductModel.aggregate([
+                        { $match: query },
+                        { $sample: { size: totalProducts } }
+                    ]);
+                } else {
+                    // Если товаров больше лимита, используем обычный $sample
+                    randomProducts = await ProductModel.aggregate([
+                        { $match: query },
+                        { $sample: { size: parseInt(limit) } }
+                    ]);
+                }
+            }
             
             // Ответ с товарами в случайном порядке
             return res.json({
