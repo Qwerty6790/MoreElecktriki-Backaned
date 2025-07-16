@@ -157,7 +157,7 @@ exports.getProducts = async (req, res) => {
             material,
             article,
             showHidden = false,
-            randomize = 'false'  // Устанавливаем по умолчанию значение 'true' как строку
+            randomize = 'true'  // Устанавливаем по умолчанию значение 'true' как строку
         } = req.query;
         
         const query = buildQuery({ 
