@@ -20,4 +20,18 @@ router.patch('/orders/:orderId/status', ordersController.updateOrderStatus);
 router.get('/orders/:orderId', authenticate, ordersController.getOrderById);
 router.get('/all-orders', ordersController.getAllOrders);
 
+// ==================== ПУБЛИЧНЫЕ МАРШРУТЫ ДЛЯ ГОСТЕВЫХ ЗАКАЗОВ ====================
+
+// Создание гостевого заказа с онлайн оплатой (БЕЗ АВТОРИЗАЦИИ)
+router.post('/guest-orders/add-order-with-payment', ordersController.addGuestOrderWithPayment);
+
+// Создание гостевого заказа без онлайн оплаты (БЕЗ АВТОРИЗАЦИИ)
+router.post('/guest-orders/add-order-without-payment', ordersController.addGuestOrderWithoutPayment);
+
+// Получение информации о гостевом заказе по ID (БЕЗ АВТОРИЗАЦИИ)
+router.get('/guest-orders/:orderId', ordersController.getGuestOrderById);
+
+// Обработка webhook от ЮKassa для гостевых заказов (БЕЗ АВТОРИЗАЦИИ)
+router.post('/guest-orders/payment-notification', ordersController.handleGuestPaymentNotification);
+
 module.exports = router;

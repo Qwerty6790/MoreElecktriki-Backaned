@@ -148,7 +148,7 @@ exports.getProducts = async (req, res) => {
     try {
         const { 
             page = 1, 
-            limit = 14, 
+            limit = 18, 
             name = '', 
             minPrice, 
             maxPrice, 
@@ -157,7 +157,7 @@ exports.getProducts = async (req, res) => {
             material,
             article,
             showHidden = false,
-            randomize = 'true'  // Устанавливаем по умолчанию значение 'true' как строку
+            randomize = 'false'  // Устанавливаем по умолчанию значение 'true' как строку
         } = req.query;
         
         const query = buildQuery({ 

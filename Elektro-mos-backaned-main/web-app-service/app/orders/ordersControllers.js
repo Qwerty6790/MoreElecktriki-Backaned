@@ -272,3 +272,199 @@ exports.getAllOrders = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// ==================== ГОСТЕВЫЕ ЗАКАЗЫ БЕЗ АВТОРИЗАЦИИ ====================
+
+// Функция для создания гостевого заказа с онлайн оплатой
+exports.addGuestOrderWithPayment = async (req, res) => {
+    const { products, guestInfo } = req.body;
+
+    // Валидация данных гостя
+    if (!guestInfo || !guestInfo.name || !guestInfo.surname || !guestInfo.phone || !guestInfo.email) {
+        return res.status(400).json({ 
+            message: 'Требуется указать имя, фамилию, телефон и email гостя' 
+        });
+    }
+
+    if (!Array.isArray(products) || products.length === 0) {
+        return res.status(400).json({ message: 'Недействительный список товаров' });
+    }
+
+    // Проверяем, что каждый товар имеет необходимые поля
+    for (const product of products) {
+        if (!product.name || product.price == null) {
+            return res.status(400).json({ 
+                message: 'Каждый товар должен содержать имя и цену' 
+            });
+        }
+    }
+
+    // Рассчитываем общую сумму заказа
+    const totalAmount = products.reduce((total, product) => total + (product.price * product.quantity), 0);
+
+    try {
+        // Создаём гостевой заказ в базе данных без userId
+        const order = new OrderModel({ 
+            products, 
+            totalAmount, 
+            status: 'pending',
+            guestInfo: {
+                name: guestInfo.name,
+                surname: guestInfo.surname,
+                phone: guestInfo.phone,
+                email: guestInfo.email,
+                comment: guestInfo.comment || '',
+                address: guestInfo.address || ''
+            },
+            isGuest: true
+        });
+        await order.save();
+
+        // Создаём платёж в ЮKassa
+        const payment = await yooKassa.createPayment({
+            amount: {
+                value: totalAmount.toFixed(2),
+                currency: 'RUB',
+            },
+            confirmation: {
+                type: 'redirect',
+                return_url: `https://elektromos.ru/payment-success/${order._id}`
+            },
+            capture: true,
+            description: `Оплата заказа #${order._id} (Гость: ${guestInfo.name})`,
+            metadata: {
+                orderId: order._id.toString(),
+                isGuest: 'true'
+            }
+        });
+
+        res.status(201).json({
+            message: 'Гостевой заказ создан. Перейдите по ссылке для оплаты.',
+            order,
+            paymentUrl: payment.confirmation.confirmation_url
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Функция для создания гостевого заказа без онлайн оплаты (оплата при получении)
+exports.addGuestOrderWithoutPayment = async (req, res) => {
+    const { products, guestInfo } = req.body;
+
+    // Валидация данных гостя
+    if (!guestInfo || !guestInfo.name || !guestInfo.surname || !guestInfo.phone || !guestInfo.email) {
+        return res.status(400).json({ 
+            message: 'Требуется указать имя, фамилию, телефон и email гостя' 
+        });
+    }
+
+    if (!Array.isArray(products) || products.length === 0) {
+        return res.status(400).json({ message: 'Недействительный список товаров' });
+    }
+
+    // Проверяем, что каждый товар имеет необходимые поля
+    for (const product of products) {
+        if (!product.name || product.price == null) {
+            return res.status(400).json({ 
+                message: 'Каждый товар должен содержать имя и цену' 
+            });
+        }
+    }
+
+    // Рассчитываем общую сумму заказа
+    const totalAmount = products.reduce((total, product) => total + (product.price * product.quantity), 0);
+
+    try {
+        const order = new OrderModel({ 
+            products, 
+            totalAmount, 
+            status: 'Оплата при получении',
+            guestInfo: {
+                name: guestInfo.name,
+                surname: guestInfo.surname,
+                phone: guestInfo.phone,
+                email: guestInfo.email,
+                comment: guestInfo.comment || '',
+                address: guestInfo.address || ''
+            },
+            isGuest: true
+        });
+        await order.save();
+
+        res.status(201).json({ 
+            message: 'Гостевой заказ создан', 
+            order,
+            trackingId: order._id
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Функция для получения информации о гостевом заказе по ID (для отслеживания)
+exports.getGuestOrderById = async (req, res) => {
+    const { orderId } = req.params;
+
+    try {
+        const order = await OrderModel.findOne({ 
+            _id: orderId, 
+            isGuest: true 
+        });
+
+        if (!order) {
+            return res.status(404).json({ 
+                message: 'Заказ не найден' 
+            });
+        }
+
+        res.json({ order });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Функция для обработки webhook от ЮKassa для гостевых заказов
+exports.handleGuestPaymentNotification = async (req, res) => {
+    const { orderId } = req.query;
+
+    try {
+        const order = await OrderModel.findById(orderId);
+
+        if (!order) {
+            return res.status(404).json({ message: 'Заказ не найден' });
+        }
+
+        if (!order.isGuest) {
+            return res.status(400).json({ message: 'Это не гостевой заказ' });
+        }
+
+        // Обновляем статус заказа после успешной оплаты
+        order.status = 'Оплачен';
+        await order.save();
+
+        // Отправляем уведомление на email гостя
+        // await axios.post('https://palermo-light-backend-emailer.vercel.app/api/send-email', {
+        //     from: 'your-gmail-account@gmail.com',
+        //     to: order.guestInfo.email,
+        //     subject: 'Оплата подтверждена',
+        //     text: `Здравствуйте, ${order.guestInfo.name}!
+
+        //     Ваш заказ #${orderId} был успешно оплачен. Мы начнём его обработку в ближайшее время.
+
+        //     Для отслеживания статуса заказа используйте ID: ${orderId}
+
+        //     Если у вас есть вопросы, пожалуйста, свяжитесь с нашей службой поддержки - davidmonte00@mail.ru
+
+        //     С уважением,
+        //     Команда Elektro-mos.`
+        // });
+
+        res.status(200).json({ 
+            message: 'Статус гостевого заказа обновлён на "оплачен"' 
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Ошибка при обработке запроса' });
+    }
+};

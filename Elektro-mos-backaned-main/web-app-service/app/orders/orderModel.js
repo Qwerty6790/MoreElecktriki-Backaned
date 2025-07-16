@@ -12,11 +12,35 @@ const orderSchema = new mongoose.Schema({
         }
     ],
     status: { type: Array, default: ['Ожидает обработки'] },
-    userId: { type: mongoose.Schema.Types.ObjectId, required: true },
+    userId: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        required: function() { return !this.isGuest; } // Обязательно только для авторизованных пользователей
+    },
+    // Данные для гостевых заказов
+    isGuest: { type: Boolean, default: false },
+    guestInfo: {
+        name: { 
+            type: String, 
+            required: function() { return this.isGuest; }
+        },
+        surname: { 
+            type: String, 
+            required: function() { return this.isGuest; }
+        },
+        phone: { 
+            type: String, 
+            required: function() { return this.isGuest; }
+        },
+        email: { 
+            type: String, 
+            required: function() { return this.isGuest; }
+        },
+        comment: { type: String, default: '' },
+        address: { type: String, default: '' }
+    },
     createdAt: { type: Date, default: Date.now },
     totalAmount: { type: Number, default: 0 } // Добавлено поле для общей суммы
 }, { timestamps: true });
-
 
 const OrderModel = mongoose.model('Order', orderSchema);
 module.exports = { OrderModel };
