@@ -11,7 +11,6 @@ const authRouter = require('./app/auth/authRoutes');
 const productRouter = require('./app/products/productRoutes');
 const ordersRouter = require('./app/orders/ordersRoutes');
 const usersRouter = require('./app/users/userRoutes');
-const adminRouter = require('./app/admin/adminRoutes');
 
 const { updateProductData } = require('./cronTasks'); // Импортируем задачу для обновления данных о продуктах
 
