@@ -4,7 +4,7 @@ const express = require('express'); // Импортируем Express для с�
 const cors = require('cors'); // Импортируем CORS для разрешения кросс-доменных запросов
 const cron = require('node-cron'); // Импортируем node-cron для планирования задач
 const session = require('express-session');
-const RedisStore = require('connect-redis').default;
+const RedisStore = require('connect-redis')(session);
 const rateLimit = require('express-rate-limit');
 
 const connectDB = require('./config/db'); // Импортируем функцию для подключения к базе данных
@@ -64,7 +64,6 @@ app.use('/api', authRouter);
 app.use('/api', productRouter);
 app.use('/api', ordersRouter);
 app.use('/api', usersRouter);
-app.use('/api', adminRouter);
 
 // Обработка корневого маршрута
 app.get('/', (req, res) => {
