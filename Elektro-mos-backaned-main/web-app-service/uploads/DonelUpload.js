@@ -36,57 +36,7 @@ async function fetchXML(url) {
   return xml2js.parseStringPromise(resp.data, { explicitArray: true, trim: true });
 }
 
-function modifyProductName(name, params = []) {
-  // Проверяем, содержит ли название "W55"
-  if (name.includes('W55')) {
-    console.log(`Найден товар с W55: ${name}`);
-    
-    // Получаем описание товара и другие возможные поля, где может быть указан тип установки
-    const description = getParamValue(params, 'Описание') || '';
-    const fullDescription = getParamValue(params, 'ПолноеОписание') || '';
-    const shortDescription = getParamValue(params, 'КраткоеОписание') || '';
-    const installationType = getParamValue(params, 'Тип установки') || 
-                           getParamValue(params, 'Тип монтажа') || 
-                           getParamValue(params, 'Установка') || '';
-    
-    // Собираем все текстовые данные для поиска упоминаний о типе установки
-    const allText = [description, fullDescription, shortDescription, installationType, name].join(' ').toLowerCase();
-    
-    console.log(`Анализ текста для определения типа установки`);
-    
-    // Проверяем наличие упоминаний о накладном типе установки
-    if (allText.includes('накладной') || 
-        allText.includes('накладные') ||
-        allText.includes('накладная')) {
-      console.log(`Найдено упоминание о накладном типе установки`);
-      return `${name} W55 Накладной`;
-    }
-    // Проверяем наличие упоминаний о скрытом/встроенном типе установки
-    else if (allText.includes('для скрытой установки') || 
-             allText.includes('скрыт') || 
-             allText.includes('встроен') ||
-             allText.includes('скрыт. установ')) {
-      console.log(`Найдено упоминание о скрытом типе установки`);
-      return `${name} Встроенный монтаж W55`;
-    }
-    
-    console.log(`Не удалось определить тип установки для W55`);
-  }
-  
-  // Возвращаем оригинальное название, если условия не выполнены
-  return name;
-}
 
-// Вспомогательная функция для вывода всех параметров товара
-function logAllParams(params = []) {
-  if (!params || params.length === 0) return;
-  console.log('Все параметры товара:');
-  params.forEach(p => {
-    const name = p.$?.name || 'Без имени';
-    const value = (p._ || p.$.value || '').trim();
-    console.log(`  - ${name}: ${value}`);
-  });
-}
 
 async function uploadProductsDonel() {
   await connectToDatabase();
@@ -108,23 +58,9 @@ async function uploadProductsDonel() {
   for (const o of offers) {
     const id      = o.$.id || '';
     const article = getParamValue(o.param, 'Артикул');
-    let name    = o.name?.[0]
+    const name    = o.name?.[0]
                 || o.typePrefix?.[0]
                 || [o.vendor?.[0], o.model?.[0]].filter(Boolean).join(' ');
-    
-    // Для товаров с W55 выводим все параметры
-    if (name.includes('W55')) {
-      console.log(`\n=== Товар с W55: ${name} ===`);
-      logAllParams(o.param);
-    }
-    
-    // Модифицируем название товара если необходимо
-    const originalName = name;
-    name = modifyProductName(name, o.param);
-    
-    if (originalName !== name) {
-      console.log(`Имя изменено: ${originalName} -> ${name}`);
-    }
     
     const price   = parseFloat(o.price?.[0] || 0);
     const stock   = 100;

@@ -7,9 +7,12 @@ const { ProductModel } = require('../app/products/productModel');
 // Путь к файлу Excel
 let EXCEL_FILE_PATH = path.join(__dirname, '../Uploads/yml/ЧТКteplypol.xls');
 
+// Путь к файлу резервной копии изображений
+const IMAGES_BACKUP_PATH = path.join(__dirname, '../uploads/images_backup.json');
+
 // Список целевых названий товаров
 const targetNames = [
-    'МНД-160',
+    'МНД',
     'Снт-18',
     'Сн-15',
     'Сн-10',
@@ -170,6 +173,9 @@ function determineColumns(products) {
 const uploadProductsFromExcel = async () => {
     try {
         console.log(`Обработка файла: ${EXCEL_FILE_PATH}`);
+        
+        // Загружаем резервную копию изображений
+        const imagesBackup = loadImagesBackup();
         
         // Парсинг Excel-файла
         const products = parseXLSXFile(EXCEL_FILE_PATH);
@@ -511,6 +517,23 @@ const uploadProductsFromExcel = async () => {
             }
             
             try {
+                // Проверяем, существует ли товар в базе данных
+                const existingProduct = await ProductModel.findOne({ article: productData.article });
+                
+                // Проверяем резервную копию изображений только для HTK товаров
+                if (imagesBackup[productData.article] && 
+                    imagesBackup[productData.article].images && 
+                    imagesBackup[productData.article].images.length > 0 &&
+                    imagesBackup[productData.article].source === 'ЧТКProduct') {
+                    console.log(`Восстановлены HTK изображения из резервной копии для товара: ${productData.article}`);
+                    productData.imageAddress = imagesBackup[productData.article].images;
+                }
+                // Если товар существует и у него есть изображения, сохраняем их
+                else if (existingProduct && existingProduct.imageAddress && existingProduct.imageAddress.length > 0) {
+                    console.log(`Товар ${productData.article} уже существует с изображениями, сохраняем существующие изображения`);
+                    productData.imageAddress = existingProduct.imageAddress;
+                }
+                
                 await ProductModel.findOneAndUpdate(
                     { article: productData.article },
                     productData,
@@ -526,8 +549,56 @@ const uploadProductsFromExcel = async () => {
         
         console.log(`\nРезультаты обработки:\n- Обработано товаров: ${processedCount}\n- Пропущено товаров: ${skippedCount}`);
         
+        // Сохраняем обновленную резервную копию изображений
+        await saveImagesBackup(imagesBackup);
+        
     } catch (error) {
         console.error('Ошибка при обработке файла Excel:', error.message);
+    }
+};
+
+// Функция для загрузки резервной копии изображений
+const loadImagesBackup = () => {
+    try {
+        if (fs.existsSync(IMAGES_BACKUP_PATH)) {
+            const backupData = fs.readFileSync(IMAGES_BACKUP_PATH, 'utf8');
+            const imagesBackup = JSON.parse(backupData);
+            console.log(`Загружена резервная копия HTK изображений для ${Object.keys(imagesBackup).length} товаров`);
+            return imagesBackup;
+        }
+    } catch (error) {
+        console.error('Ошибка при загрузке резервной копии изображений:', error.message);
+    }
+    return {};
+};
+
+// Функция для сохранения резервной копии изображений
+const saveImagesBackup = async (imagesBackup) => {
+    try {
+        // Получаем только товары HTK из базы данных для обновления резервной копии
+        const htkProducts = await ProductModel.find({ source: 'ЧТКProduct' }, 'article imageAddress source');
+        
+        // Обновляем резервную копию данными из базы только для HTK товаров
+        htkProducts.forEach(product => {
+            if (product.imageAddress && product.imageAddress.length > 0) {
+                imagesBackup[product.article] = {
+                    images: product.imageAddress,
+                    lastUpdated: new Date().toISOString(),
+                    source: 'ЧТКProduct'
+                };
+            }
+        });
+        
+        // Создаем директорию если её нет
+        const backupDir = path.dirname(IMAGES_BACKUP_PATH);
+        if (!fs.existsSync(backupDir)) {
+            fs.mkdirSync(backupDir, { recursive: true });
+        }
+        
+        fs.writeFileSync(IMAGES_BACKUP_PATH, JSON.stringify(imagesBackup, null, 2), 'utf8');
+        console.log(`Резервная копия HTK изображений сохранена: ${Object.keys(imagesBackup).length} товаров`);
+    } catch (error) {
+        console.error('Ошибка при сохранении резервной копии изображений:', error.message);
     }
 };
 
@@ -602,5 +673,7 @@ if (require.main === module) {
 
 module.exports = { 
     uploadProductsFromExcel,
-    parseXLSXFile
+    parseXLSXFile,
+    loadImagesBackup,
+    saveImagesBackup
 };
