@@ -15,7 +15,6 @@ const authRouter = require('./app/auth/authRoutes');
 const productRouter = require('./app/products/productRoutes');
 const ordersRouter = require('./app/orders/ordersRoutes');
 const usersRouter = require('./app/users/userRoutes');
-const adminRouter = require('./app/admin/adminRoutes');
 
 const { updateProductData } = require('./cronTasks'); // Импортируем задачу для обновления данных о продуктах
 
@@ -34,30 +33,12 @@ const limiter = rateLimit({
     legacyHeaders: false,
 });
 
-// Session store с Redis
-const sessionStore = new RedisStore({
-    client: redisClient,
-    prefix: 'sess:',
-    ttl: 86400 // 24 часа
-});
+
 
 app.use(limiter); // Применяем rate limiting
 app.use(express.json()); // Настраиваем middleware для обработки JSON в запросах
 app.use(cors()); // Настраиваем CORS
 
-// Настраиваем сессии с Redis
-app.use(session({
-    store: sessionStore,
-    secret: process.env.SESSION_SECRET || 'elektro-mos-secret-key',
-    resave: false,
-    saveUninitialized: false,
-    name: 'elektro-mos-session',
-    cookie: {
-        secure: process.env.NODE_ENV === 'production', // HTTPS в продакшене
-        httpOnly: true,
-        maxAge: 1000 * 60 * 60 * 24 // 24 часа
-    }
-}));
 
 // Настраиваем маршруты с префиксом /api
 app.use('/api', authRouter);    
