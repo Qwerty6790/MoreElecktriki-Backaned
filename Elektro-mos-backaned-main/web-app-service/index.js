@@ -20,12 +20,9 @@ const PORT = process.env.PORT || 3007; // Устанавливаем порт д
 connectDB(); // Подключаемся к базе данных
 
 app.use(express.json()); // Настраиваем middleware для обработки JSON в запросах
-app.use(cors({
-    origin: ['http://178.209.127.237', 'http://localhost:3000', 'http://localhost:3001'],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
+app.use(cors()); // Настраиваем CORS
+
+
 
 // Настраиваем маршруты с префиксом /api
 app.use('/api', authRouter);    
