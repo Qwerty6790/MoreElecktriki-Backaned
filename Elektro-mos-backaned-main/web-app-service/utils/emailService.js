@@ -1,7 +1,7 @@
 const nodemailer = require('nodemailer');
 
 // Создаем транспортер для отправки email
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: 'infoelektromosru@gmail.com', // Ваш Gmail
