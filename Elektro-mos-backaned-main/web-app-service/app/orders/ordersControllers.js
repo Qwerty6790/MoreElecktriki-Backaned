@@ -51,8 +51,9 @@ exports.addOrderWithPayment = async (req, res) => {
         });
 
         // Отправляем уведомление на почту администратора
+        console.log('🔄 Начинаем отправку email уведомления...');
         try {
-            await sendEmail(
+            const emailResult = await sendEmail(
                 'infoelektromosru@gmail.com',
                 'Новый заказ с онлайн оплатой',
                 `Получен новый заказ с онлайн оплатой!
@@ -68,8 +69,9 @@ ${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).jo
 
 Ссылка на оплату: ${payment.confirmation.confirmation_url}`
             );
+            console.log('📧 Результат отправки email:', emailResult);
         } catch (emailError) {
-            console.error('Ошибка отправки email:', emailError);
+            console.error('❌ Ошибка отправки email:', emailError);
             // Не прерываем выполнение, если email не отправился
         }
 
