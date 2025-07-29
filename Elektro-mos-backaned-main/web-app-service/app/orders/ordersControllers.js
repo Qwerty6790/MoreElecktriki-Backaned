@@ -1,6 +1,6 @@
 const { OrderModel } = require('./orderModel'); // Импорт модели заказа
 const User = require('../users/userModel'); // Импорт модели пользователя
-const axios = require('axios'); // Импортируем axios для отправки email
+const { sendEmail } = require('../../utils/emailService'); // Импортируем функцию отправки email
 const YooKassa  = require('yookassa'); // Импортируем библиотеку YooKassa
 
 // Настройки для ЮKassa
@@ -50,6 +50,29 @@ exports.addOrderWithPayment = async (req, res) => {
             }
         });
 
+        // Отправляем уведомление на почту администратора
+        try {
+            await sendEmail(
+                'infoelektromosru@gmail.com',
+                'Новый заказ с онлайн оплатой',
+                `Получен новый заказ с онлайн оплатой!
+
+ID заказа: ${order._id}
+Сумма: ${totalAmount} руб.
+Статус: ${order.status}
+
+Товары:
+${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+
+Пользователь: ${req.user.userId}
+
+Ссылка на оплату: ${payment.confirmation.confirmation_url}`
+            );
+        } catch (emailError) {
+            console.error('Ошибка отправки email:', emailError);
+            // Не прерываем выполнение, если email не отправился
+        }
+
         // Возвращаем ссылку на оплату
         res.status(201).json({
             message: 'Заказ создан. Перейдите по ссылке для оплаты.',
@@ -83,20 +106,6 @@ exports.handlePaymentNotification = async (req, res) => {
                 return res.status(404).json({ message: 'Пользователь не найден' });
             }
 
-            // await axios.post('https://palermo-light-backend-emailer.vercel.app/api/send-email', {
-            //     from: 'your-gmail-account@gmail.com',
-            //     to: user.email,
-            //     subject: 'Оплата подтверждена',
-            //     text: `Здравствуйте, ${user.username}!
-
-            //     Ваш заказ #${orderId} был успешно оплачен. Мы начнём его обработку в ближайшее время.
-
-            //     Если у вас есть вопросы, пожалуйста, свяжитесь с нашей службой поддержки - davidmonte00@mail.ru
-
-            //     С уважением,
-            //     Команда Palermo Light.`
-            // });
-
             res.status(200).json({ message: 'Статус заказа обновлён на "оплачен"' });
         } catch (error) {
             console.error(error);
@@ -126,6 +135,27 @@ exports.addOrderWithoutPayment = async (req, res) => {
     try {
         const order = new OrderModel({ userId, products, totalAmount, status: 'Оплата при получении' });
         await order.save();
+
+        // Отправляем уведомление на почту администратора
+        try {
+            await sendEmail(
+                'infoelektromosru@gmail.com',
+                'Новый заказ с оплатой при получении',
+                `Получен новый заказ с оплатой при получении!
+
+ID заказа: ${order._id}
+Сумма: ${totalAmount} руб.
+Статус: ${order.status}
+
+Товары:
+${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+
+Пользователь: ${req.user.userId}`
+            );
+        } catch (emailError) {
+            console.error('Ошибка отправки email:', emailError);
+        }
+
         res.status(201).json({ message: 'Заказ создан', order });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -338,6 +368,32 @@ exports.addGuestOrderWithPayment = async (req, res) => {
             }
         });
 
+        // Отправляем уведомление на почту администратора
+        try {
+            await sendEmail(
+                'infoelektromosru@gmail.com',
+                'Новый гостевой заказ с онлайн оплатой',
+                `Получен новый гостевой заказ с онлайн оплатой!
+
+ID заказа: ${order._id}
+Сумма: ${totalAmount} руб.
+Статус: ${order.status}
+
+Гость: ${guestInfo.name} ${guestInfo.surname}
+Email: ${guestInfo.email}
+Телефон: ${guestInfo.phone}
+Адрес: ${guestInfo.address || 'Не указан'}
+Комментарий: ${guestInfo.comment || 'Нет'}
+
+Товары:
+${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+
+Ссылка на оплату: ${payment.confirmation.confirmation_url}`
+            );
+        } catch (emailError) {
+            console.error('Ошибка отправки email:', emailError);
+        }
+
         res.status(201).json({
             message: 'Гостевой заказ создан. Перейдите по ссылке для оплаты.',
             order,
@@ -391,6 +447,30 @@ exports.addGuestOrderWithoutPayment = async (req, res) => {
             isGuest: true
         });
         await order.save();
+
+        // Отправляем уведомление на почту администратора
+        try {
+            await sendEmail(
+                'infoelektromosru@gmail.com',
+                'Новый гостевой заказ с оплатой при получении',
+                `Получен новый гостевой заказ с оплатой при получении!
+
+ID заказа: ${order._id}
+Сумма: ${totalAmount} руб.
+Статус: ${order.status}
+
+Гость: ${guestInfo.name} ${guestInfo.surname}
+Email: ${guestInfo.email}
+Телефон: ${guestInfo.phone}
+Адрес: ${guestInfo.address || 'Не указан'}
+Комментарий: ${guestInfo.comment || 'Нет'}
+
+Товары:
+${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}`
+            );
+        } catch (emailError) {
+            console.error('Ошибка отправки email:', emailError);
+        }
 
         res.status(201).json({ 
             message: 'Гостевой заказ создан', 

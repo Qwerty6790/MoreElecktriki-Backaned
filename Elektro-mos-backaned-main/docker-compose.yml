@@ -16,6 +16,21 @@ services:
     networks:
       - elektro-network
 
+  nginx:
+    image: nginx:alpine
+    container_name: elektro-mos-nginx
+    restart: unless-stopped
+    ports:
+      - "9443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/sites-available:/etc/nginx/sites-available
+      - ./nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - backend
+    networks:
+      - elektro-network
+
 networks:
   elektro-network:
     driver: bridge
