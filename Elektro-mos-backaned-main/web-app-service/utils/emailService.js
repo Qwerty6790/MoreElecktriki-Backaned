@@ -7,7 +7,7 @@ const transporter = nodemailer.createTransport({
     secure: false, // true для 465, false для других портов
     auth: {
         user: 'infoelektromosru@gmail.com',
-        pass: 'Qwerty670Im'
+        pass: 'iqsf fjse ybrg rcxg' // Замените на ваш App Password
     },
     tls: {
         rejectUnauthorized: false
