@@ -11,6 +11,10 @@ const yooKassa = new YooKassa({
 
 // Функция для создания заказа и начала оплаты
 exports.addOrderWithPayment = async (req, res) => {
+    console.log('🚀 Вызвана функция addOrderWithPayment');
+    console.log('📦 Товары:', req.body.products);
+    console.log('👤 Пользователь ID:', req.user.userId);
+    
     const { products } = req.body;
     const userId = req.user.userId;
 
@@ -117,6 +121,10 @@ exports.handlePaymentNotification = async (req, res) => {
 
 // Функция для создания заказа с оплатой на месте
 exports.addOrderWithoutPayment = async (req, res) => {
+    console.log('🚀 Вызвана функция addOrderWithoutPayment');
+    console.log('📦 Товары:', req.body.products);
+    console.log('👤 Пользователь ID:', req.user.userId);
+    
     const { products } = req.body;
     const userId = req.user.userId;
 
@@ -309,6 +317,10 @@ exports.getAllOrders = async (req, res) => {
 
 // Функция для создания гостевого заказа с онлайн оплатой
 exports.addGuestOrderWithPayment = async (req, res) => {
+    console.log('🚀 Вызвана функция addGuestOrderWithPayment');
+    console.log('📦 Товары:', req.body.products);
+    console.log('👤 Гость:', req.body.guestInfo);
+    
     const { products, guestInfo } = req.body;
 
     // Валидация данных гостя
@@ -408,6 +420,10 @@ ${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).jo
 
 // Функция для создания гостевого заказа без онлайн оплаты (оплата при получении)
 exports.addGuestOrderWithoutPayment = async (req, res) => {
+    console.log('🚀 Вызвана функция addGuestOrderWithoutPayment');
+    console.log('📦 Товары:', req.body.products);
+    console.log('👤 Гость:', req.body.guestInfo);
+    
     const { products, guestInfo } = req.body;
 
     // Валидация данных гостя
