@@ -62,21 +62,36 @@ exports.addOrderWithPayment = async (req, res) => {
         try {
             const adminEmailResult = await sendEmail(
                 'infoelektromosru@gmail.com',
-                'Новый заказ с онлайн оплатой',
-                `Получен новый заказ с онлайн оплатой!
+                '💳 Новый заказ с оплатой #' + order._id,
+                `ЗАКАЗ СОЗДАН
 
-ID заказа: ${order._id}
-Сумма: ${totalAmount} руб.
-Статус: ${order.status}
+📋 Информация о заказе:
+Номер заказа: ${order._id}
+Дата создания: ${new Date().toLocaleString('ru-RU')}
+Сумма заказа: ${totalAmount} руб.
+Способ оплаты: Онлайн оплата
+Статус: Ожидает оплаты
 
-Пользователь: ${user ? user.username : 'Неизвестный пользователь'}
+👤 Информация о клиенте:
+Имя: ${user ? user.username : 'Неизвестный пользователь'}
 Email: ${user ? user.email : 'Не указан'}
-ID пользователя: ${req.user.userId}
+ID клиента: ${req.user.userId}
 
-Товары:
-${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+🛍️ Товары в заказе:
+${products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
 
-Ссылка на оплату: ${payment.confirmation.confirmation_url}`
+💰 Общая сумма: ${totalAmount} руб.
+
+🔗 Ссылка на оплату:
+${payment.confirmation.confirmation_url}
+
+📞 Следующие шаги:
+• Дождаться оплаты от клиента
+• После оплаты - подтвердить наличие товаров
+• Начать обработку заказа
+
+---
+ЭлектроМОС - Система управления заказами`
             );
             console.log('✅ Email администратору отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -89,10 +104,10 @@ ${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).jo
             try {
                 const clientEmailResult = await sendEmail(
                     user.email,
-                    'Ваш заказ создан - перейдите к оплате - ЭлектроМОС',
+                    'Заказ создан - перейдите к оплате - ЭлектроМОС',
                     `Здравствуйте, ${user.username}!
 
-Ваш заказ успешно создан!
+Ваш пришел заказ!
 
 Номер заказа: ${order._id}
 Сумма заказа: ${totalAmount} руб.
@@ -162,20 +177,31 @@ exports.handlePaymentNotification = async (req, res) => {
         try {
             const adminEmailResult = await sendEmail(
                 'infoelektromosru@gmail.com',
-                'Заказ оплачен - ЭлектроМОС',
-                `Заказ успешно оплачен!
+                '✅ Заказ оплачен #' + order._id,
+                `ЗАКАЗ ОПЛАЧЕН
 
-ID заказа: ${order._id}
-Сумма: ${order.totalAmount} руб.
+📋 Информация о заказе:
+Номер заказа: ${order._id}
+Дата оплаты: ${new Date().toLocaleString('ru-RU')}
+Сумма заказа: ${order.totalAmount} руб.
 Статус: Оплачен
 
-Пользователь: ${user.username}
+👤 Информация о клиенте:
+Имя: ${user.username}
 Email: ${user.email}
 
-Товары:
-${order.products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+🛍️ Товары в заказе:
+${order.products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
 
-Время оплаты: ${new Date().toLocaleString('ru-RU')}`
+💰 Общая сумма: ${order.totalAmount} руб.
+
+📞 Следующие шаги:
+• Подтвердить наличие товаров
+• Начать сборку заказа
+• Связаться с клиентом для уточнения доставки
+
+---
+ЭлектроМОС - Система управления заказами`
             );
             console.log('✅ Email администратору об оплате отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -255,19 +281,33 @@ exports.addOrderWithoutPayment = async (req, res) => {
         try {
             const adminEmailResult = await sendEmail(
                 'infoelektromosru@gmail.com',
-                'Новый заказ с оплатой при получении',
-                `Получен новый заказ с оплатой при получении!
+                '🛒 Новый заказ #' + order._id,
+                `ЗАКАЗ СОЗДАН
 
-ID заказа: ${order._id}
-Сумма: ${totalAmount} руб.
-Статус: ${order.status}
+📋 Информация о заказе:
+Номер заказа: ${order._id}
+Дата создания: ${new Date().toLocaleString('ru-RU')}
+Сумма заказа: ${totalAmount} руб.
+Способ оплаты: Оплата при получении
+Статус: Ожидает обработки
 
-Пользователь: ${user ? user.username : 'Неизвестный пользователь'}
+👤 Информация о клиенте:
+Имя: ${user ? user.username : 'Неизвестный пользователь'}
 Email: ${user ? user.email : 'Не указан'}
-ID пользователя: ${req.user.userId}
+ID клиента: ${req.user.userId}
 
-Товары:
-${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}`
+🛍️ Товары в заказе:
+${products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+
+💰 Общая сумма: ${totalAmount} руб.
+
+📞 Следующие шаги:
+• Подтвердить наличие товаров
+• Связаться с клиентом для уточнения деталей
+• Подтвердить заказ
+
+---
+ЭлектроМОС - Система управления заказами`
             );
             console.log('✅ Email администратору отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -531,23 +571,38 @@ exports.addGuestOrderWithPayment = async (req, res) => {
         try {
             const adminEmailResult = await sendEmail(
                 'infoelektromosru@gmail.com',
-                'Новый гостевой заказ с онлайн оплатой',
-                `Получен новый гостевой заказ с онлайн оплатой!
+                '💳 Новый гостевой заказ с оплатой #' + order._id,
+                `ЗАКАЗ СОЗДАН
 
-ID заказа: ${order._id}
-Сумма: ${totalAmount} руб.
-Статус: ${order.status}
+📋 Информация о заказе:
+Номер заказа: ${order._id}
+Дата создания: ${new Date().toLocaleString('ru-RU')}
+Сумма заказа: ${totalAmount} руб.
+Способ оплаты: Онлайн оплата
+Статус: Ожидает оплаты
 
-Гость: ${guestInfo.name} ${guestInfo.surname}
+👤 Информация о клиенте:
+Имя: ${guestInfo.name} ${guestInfo.surname}
 Email: ${guestInfo.email}
 Телефон: ${guestInfo.phone}
-Адрес: ${guestInfo.address || 'Не указан'}
+Адрес доставки: ${guestInfo.address || 'Не указан'}
 Комментарий: ${guestInfo.comment || 'Нет'}
 
-Товары:
-${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+🛍️ Товары в заказе:
+${products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
 
-Ссылка на оплату: ${payment.confirmation.confirmation_url}`
+💰 Общая сумма: ${totalAmount} руб.
+
+🔗 Ссылка на оплату:
+${payment.confirmation.confirmation_url}
+
+📞 Следующие шаги:
+• Дождаться оплаты от клиента
+• После оплаты - подтвердить наличие товаров
+• Начать обработку заказа
+
+---
+ЭлектроМОС - Система управления заказами`
             );
             console.log('✅ Email администратору отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -649,21 +704,35 @@ exports.addGuestOrderWithoutPayment = async (req, res) => {
         try {
             const adminEmailResult = await sendEmail(
                 'infoelektromosru@gmail.com',
-                'Новый гостевой заказ с оплатой при получении',
-                `Получен новый гостевой заказ с оплатой при получении!
+                '🛒 Новый заказ #' + order._id,
+                `ЗАКАЗ СОЗДАН
 
-ID заказа: ${order._id}
-Сумма: ${totalAmount} руб.
-Статус: ${order.status}
+📋 Информация о заказе:
+Номер заказа: ${order._id}
+Дата создания: ${new Date().toLocaleString('ru-RU')}
+Сумма заказа: ${totalAmount} руб.
+Способ оплаты: Оплата при получении
+Статус: Ожидает обработки
 
-Гость: ${guestInfo.name} ${guestInfo.surname}
+👤 Информация о клиенте:
+Имя: ${guestInfo.name} ${guestInfo.surname}
 Email: ${guestInfo.email}
 Телефон: ${guestInfo.phone}
-Адрес: ${guestInfo.address || 'Не указан'}
+Адрес доставки: ${guestInfo.address || 'Не указан'}
 Комментарий: ${guestInfo.comment || 'Нет'}
 
-Товары:
-${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}`
+🛍️ Товары в заказе:
+${products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+
+💰 Общая сумма: ${totalAmount} руб.
+
+📞 Следующие шаги:
+• Подтвердить наличие товаров
+• Связаться с клиентом для уточнения деталей
+• Подтвердить заказ
+
+---
+ЭлектроМОС - Система управления заказами`
             );
             console.log('✅ Email администратору отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -763,22 +832,33 @@ exports.handleGuestPaymentNotification = async (req, res) => {
         try {
             const adminEmailResult = await sendEmail(
                 'infoelektromosru@gmail.com',
-                'Гостевой заказ оплачен - ЭлектроМОС',
-                `Гостевой заказ успешно оплачен!
+                '✅ Гостевой заказ оплачен #' + order._id,
+                `ЗАКАЗ ОПЛАЧЕН
 
-ID заказа: ${order._id}
-Сумма: ${order.totalAmount} руб.
+📋 Информация о заказе:
+Номер заказа: ${order._id}
+Дата оплаты: ${new Date().toLocaleString('ru-RU')}
+Сумма заказа: ${order.totalAmount} руб.
 Статус: Оплачен
 
-Гость: ${order.guestInfo.name} ${order.guestInfo.surname}
+👤 Информация о клиенте:
+Имя: ${order.guestInfo.name} ${order.guestInfo.surname}
 Email: ${order.guestInfo.email}
 Телефон: ${order.guestInfo.phone}
-Адрес: ${order.guestInfo.address || 'Не указан'}
+Адрес доставки: ${order.guestInfo.address || 'Не указан'}
 
-Товары:
-${order.products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+🛍️ Товары в заказе:
+${order.products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
 
-Время оплаты: ${new Date().toLocaleString('ru-RU')}`
+💰 Общая сумма: ${order.totalAmount} руб.
+
+📞 Следующие шаги:
+• Подтвердить наличие товаров
+• Начать сборку заказа
+• Связаться с клиентом для уточнения доставки
+
+---
+ЭлектроМОС - Система управления заказами`
             );
             console.log('✅ Email администратору об оплате гостевого заказа отправлен:', adminEmailResult);
         } catch (emailError) {
