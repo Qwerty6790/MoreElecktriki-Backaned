@@ -54,10 +54,13 @@ exports.addOrderWithPayment = async (req, res) => {
             }
         });
 
+        // Получаем данные пользователя для отправки email
+        const user = await User.findById(userId);
+        
         // Отправляем уведомление на почту администратора
-        console.log('🔄 Начинаем отправку email уведомления...');
+        console.log('📧 Отправляем email уведомление администратору...');
         try {
-            const emailResult = await sendEmail(
+            const adminEmailResult = await sendEmail(
                 'infoelektromosru@gmail.com',
                 'Новый заказ с онлайн оплатой',
                 `Получен новый заказ с онлайн оплатой!
@@ -66,17 +69,53 @@ ID заказа: ${order._id}
 Сумма: ${totalAmount} руб.
 Статус: ${order.status}
 
+Пользователь: ${user ? user.username : 'Неизвестный пользователь'}
+Email: ${user ? user.email : 'Не указан'}
+ID пользователя: ${req.user.userId}
+
 Товары:
 ${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
 
-Пользователь: ${req.user.userId}
-
 Ссылка на оплату: ${payment.confirmation.confirmation_url}`
             );
-            console.log('📧 Результат отправки email:', emailResult);
+            console.log('✅ Email администратору отправлен:', adminEmailResult);
         } catch (emailError) {
-            console.error('❌ Ошибка отправки email:', emailError);
-            // Не прерываем выполнение, если email не отправился
+            console.error('❌ Ошибка отправки email администратору:', emailError);
+        }
+
+        // Отправляем уведомление клиенту
+        if (user && user.email) {
+            console.log('📧 Отправляем email уведомление клиенту...');
+            try {
+                const clientEmailResult = await sendEmail(
+                    user.email,
+                    'Ваш заказ создан - перейдите к оплате - ЭлектроМОС',
+                    `Здравствуйте, ${user.username}!
+
+Ваш заказ успешно создан!
+
+Номер заказа: ${order._id}
+Сумма заказа: ${totalAmount} руб.
+Способ оплаты: Онлайн оплата
+Статус: Ожидает оплаты
+
+Товары в заказе:
+${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+
+Для завершения заказа перейдите по ссылке для оплаты:
+${payment.confirmation.confirmation_url}
+
+С уважением,
+Команда ЭлектроМОС
+Телефон: +7 (495) 123-45-67
+Email: infoelektromosru@gmail.com`
+                );
+                console.log('✅ Email клиенту отправлен:', clientEmailResult);
+            } catch (emailError) {
+                console.error('❌ Ошибка отправки email клиенту:', emailError);
+            }
+        } else {
+            console.log('⚠️ Email клиенту не отправлен - email не указан');
         }
 
         // Возвращаем ссылку на оплату
@@ -95,35 +134,97 @@ exports.handlePaymentNotification = async (req, res) => {
     const { orderId } = req.query; // Получаем только orderId и status
     const userId = req.user.userId; 
 
-        try {
-            const order = await OrderModel.findById(orderId);
+    console.log('💰 Обработка webhook оплаты для заказа:', orderId);
+    console.log('👤 Пользователь ID:', userId);
 
-            if (!order) {
-                return res.status(404).json({ message: 'Заказ не найден' });
-            }
+    try {
+        const order = await OrderModel.findById(orderId);
 
-            // Обновляем статус заказа после успешной оплаты
-            order.status = 'Оплачен';
-            await order.save();
-
-            // Уведомляем пользователя о подтверждении оплаты
-            const user = await User.findById(userId);
-            if (!user) {
-                return res.status(404).json({ message: 'Пользователь не найден' });
-            }
-
-            res.status(200).json({ message: 'Статус заказа обновлён на "оплачен"' });
-        } catch (error) {
-            console.error(error);
-            res.status(500).json({ message: 'Ошибка при обработке запроса' });
+        if (!order) {
+            console.error('❌ Заказ не найден:', orderId);
+            return res.status(404).json({ message: 'Заказ не найден' });
         }
-    } 
+
+        // Обновляем статус заказа после успешной оплаты
+        order.status = 'Оплачен';
+        await order.save();
+        console.log('✅ Статус заказа обновлен на "Оплачен"');
+
+        // Уведомляем пользователя о подтверждении оплаты
+        const user = await User.findById(userId);
+        if (!user) {
+            console.error('❌ Пользователь не найден:', userId);
+            return res.status(404).json({ message: 'Пользователь не найден' });
+        }
+
+        // Отправляем email уведомление администратору
+        console.log('📧 Отправляем email уведомление администратору об оплате...');
+        try {
+            const adminEmailResult = await sendEmail(
+                'infoelektromosru@gmail.com',
+                'Заказ оплачен - ЭлектроМОС',
+                `Заказ успешно оплачен!
+
+ID заказа: ${order._id}
+Сумма: ${order.totalAmount} руб.
+Статус: Оплачен
+
+Пользователь: ${user.username}
+Email: ${user.email}
+
+Товары:
+${order.products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+
+Время оплаты: ${new Date().toLocaleString('ru-RU')}`
+            );
+            console.log('✅ Email администратору об оплате отправлен:', adminEmailResult);
+        } catch (emailError) {
+            console.error('❌ Ошибка отправки email администратору об оплате:', emailError);
+        }
+
+        // Отправляем email уведомление клиенту
+        console.log('📧 Отправляем email уведомление клиенту об оплате...');
+        try {
+            const clientEmailResult = await sendEmail(
+                user.email,
+                'Ваш заказ оплачен - ЭлектроМОС',
+                `Здравствуйте, ${user.username}!
+
+Ваш заказ успешно оплачен!
+
+Номер заказа: ${order._id}
+Сумма заказа: ${order.totalAmount} руб.
+Статус: Оплачен
+Время оплаты: ${new Date().toLocaleString('ru-RU')}
+
+Товары в заказе:
+${order.products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+
+Мы начнем обработку вашего заказа в ближайшее время.
+
+С уважением,
+Команда ЭлектроМОС
+Телефон: +7 (495) 123-45-67
+Email: infoelektromosru@gmail.com`
+            );
+            console.log('✅ Email клиенту об оплате отправлен:', clientEmailResult);
+        } catch (emailError) {
+            console.error('❌ Ошибка отправки email клиенту об оплате:', emailError);
+        }
+
+        res.status(200).json({ message: 'Статус заказа обновлён на "оплачен"' });
+    } catch (error) {
+        console.error('❌ Ошибка обработки webhook:', error);
+        res.status(500).json({ message: 'Ошибка при обработке запроса' });
+    }
+} 
 
 // Функция для создания заказа с оплатой на месте
 exports.addOrderWithoutPayment = async (req, res) => {
     console.log('🚀 Вызвана функция addOrderWithoutPayment');
     console.log('📦 Товары:', req.body.products);
     console.log('👤 Пользователь ID:', req.user.userId);
+    console.log('📧 Email уведомления будут отправлены после создания заказа');
     
     const { products } = req.body;
     const userId = req.user.userId;
@@ -146,9 +247,13 @@ exports.addOrderWithoutPayment = async (req, res) => {
         const order = new OrderModel({ userId, products, totalAmount, status: 'Оплата при получении' });
         await order.save();
 
+        // Получаем данные пользователя для отправки email
+        const user = await User.findById(userId);
+        
         // Отправляем уведомление на почту администратора
+        console.log('📧 Отправляем email уведомление администратору...');
         try {
-            await sendEmail(
+            const adminEmailResult = await sendEmail(
                 'infoelektromosru@gmail.com',
                 'Новый заказ с оплатой при получении',
                 `Получен новый заказ с оплатой при получении!
@@ -157,17 +262,56 @@ ID заказа: ${order._id}
 Сумма: ${totalAmount} руб.
 Статус: ${order.status}
 
-Товары:
-${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+Пользователь: ${user ? user.username : 'Неизвестный пользователь'}
+Email: ${user ? user.email : 'Не указан'}
+ID пользователя: ${req.user.userId}
 
-Пользователь: ${req.user.userId}`
+Товары:
+${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}`
             );
+            console.log('✅ Email администратору отправлен:', adminEmailResult);
         } catch (emailError) {
-            console.error('Ошибка отправки email:', emailError);
+            console.error('❌ Ошибка отправки email администратору:', emailError);
         }
 
+        // Отправляем уведомление клиенту
+        if (user && user.email) {
+            console.log('📧 Отправляем email уведомление клиенту...');
+            try {
+                const clientEmailResult = await sendEmail(
+                    user.email,
+                    'Ваш заказ успешно создан - ЭлектроМОС',
+                    `Здравствуйте, ${user.username}!
+
+Ваш заказ успешно создан!
+
+Номер заказа: ${order._id}
+Сумма заказа: ${totalAmount} руб.
+Способ оплаты: Оплата при получении
+Статус: Ожидает обработки
+
+Товары в заказе:
+${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+
+Мы свяжемся с вами в ближайшее время для подтверждения заказа.
+
+С уважением,
+Команда ЭлектроМОС
+Телефон: +7 (495) 123-45-67
+Email: infoelektromosru@gmail.com`
+                );
+                console.log('✅ Email клиенту отправлен:', clientEmailResult);
+            } catch (emailError) {
+                console.error('❌ Ошибка отправки email клиенту:', emailError);
+            }
+        } else {
+            console.log('⚠️ Email клиенту не отправлен - email не указан');
+        }
+
+        console.log('✅ Заказ успешно создан и email уведомления отправлены');
         res.status(201).json({ message: 'Заказ создан', order });
     } catch (error) {
+        console.error('❌ Ошибка создания заказа:', error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -383,8 +527,9 @@ exports.addGuestOrderWithPayment = async (req, res) => {
         });
 
         // Отправляем уведомление на почту администратора
+        console.log('📧 Отправляем email уведомление администратору...');
         try {
-            await sendEmail(
+            const adminEmailResult = await sendEmail(
                 'infoelektromosru@gmail.com',
                 'Новый гостевой заказ с онлайн оплатой',
                 `Получен новый гостевой заказ с онлайн оплатой!
@@ -404,8 +549,40 @@ ${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).jo
 
 Ссылка на оплату: ${payment.confirmation.confirmation_url}`
             );
+            console.log('✅ Email администратору отправлен:', adminEmailResult);
         } catch (emailError) {
-            console.error('Ошибка отправки email:', emailError);
+            console.error('❌ Ошибка отправки email администратору:', emailError);
+        }
+
+        // Отправляем уведомление клиенту
+        console.log('📧 Отправляем email уведомление клиенту...');
+        try {
+            const clientEmailResult = await sendEmail(
+                guestInfo.email,
+                'Ваш заказ создан - перейдите к оплате - ЭлектроМОС',
+                `Здравствуйте, ${guestInfo.name}!
+
+Ваш заказ успешно создан!
+
+Номер заказа: ${order._id}
+Сумма заказа: ${totalAmount} руб.
+Способ оплаты: Онлайн оплата
+Статус: Ожидает оплаты
+
+Товары в заказе:
+${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+
+Для завершения заказа перейдите по ссылке для оплаты:
+${payment.confirmation.confirmation_url}
+
+С уважением,
+Команда ЭлектроМОС
+Телефон: +7 (495) 123-45-67
+Email: infoelektromosru@gmail.com`
+            );
+            console.log('✅ Email клиенту отправлен:', clientEmailResult);
+        } catch (emailError) {
+            console.error('❌ Ошибка отправки email клиенту:', emailError);
         }
 
         res.status(201).json({
@@ -423,6 +600,7 @@ exports.addGuestOrderWithoutPayment = async (req, res) => {
     console.log('🚀 Вызвана функция addGuestOrderWithoutPayment');
     console.log('📦 Товары:', req.body.products);
     console.log('👤 Гость:', req.body.guestInfo);
+    console.log('📧 Email уведомления будут отправлены после создания заказа');
     
     const { products, guestInfo } = req.body;
 
@@ -467,8 +645,9 @@ exports.addGuestOrderWithoutPayment = async (req, res) => {
         await order.save();
 
         // Отправляем уведомление на почту администратора
+        console.log('📧 Отправляем email уведомление администратору...');
         try {
-            await sendEmail(
+            const adminEmailResult = await sendEmail(
                 'infoelektromosru@gmail.com',
                 'Новый гостевой заказ с оплатой при получении',
                 `Получен новый гостевой заказ с оплатой при получении!
@@ -486,16 +665,49 @@ Email: ${guestInfo.email}
 Товары:
 ${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}`
             );
+            console.log('✅ Email администратору отправлен:', adminEmailResult);
         } catch (emailError) {
-            console.error('Ошибка отправки email:', emailError);
+            console.error('❌ Ошибка отправки email администратору:', emailError);
         }
 
+        // Отправляем уведомление клиенту
+        console.log('📧 Отправляем email уведомление клиенту...');
+        try {
+            const clientEmailResult = await sendEmail(
+                guestInfo.email,
+                'Ваш заказ успешно создан - ЭлектроМОС',
+                `Здравствуйте, ${guestInfo.name}!
+
+Ваш заказ успешно создан!
+
+Номер заказа: ${order._id}
+Сумма заказа: ${totalAmount} руб.
+Способ оплаты: Оплата при получении
+Статус: Ожидает обработки
+
+Товары в заказе:
+${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+
+Мы свяжемся с вами в ближайшее время для подтверждения заказа.
+
+С уважением,
+Команда ЭлектроМОС
+Телефон: +7 (495) 123-45-67
+Email: infoelektromosru@gmail.com`
+            );
+            console.log('✅ Email клиенту отправлен:', clientEmailResult);
+        } catch (emailError) {
+            console.error('❌ Ошибка отправки email клиенту:', emailError);
+        }
+
+        console.log('✅ Гостевой заказ успешно создан и email уведомления отправлены');
         res.status(201).json({ 
             message: 'Гостевой заказ создан', 
             order,
             trackingId: order._id
         });
     } catch (error) {
+        console.error('❌ Ошибка создания гостевого заказа:', error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -526,43 +738,88 @@ exports.getGuestOrderById = async (req, res) => {
 exports.handleGuestPaymentNotification = async (req, res) => {
     const { orderId } = req.query;
 
+    console.log('💰 Обработка webhook оплаты для гостевого заказа:', orderId);
+
     try {
         const order = await OrderModel.findById(orderId);
 
         if (!order) {
+            console.error('❌ Гостевой заказ не найден:', orderId);
             return res.status(404).json({ message: 'Заказ не найден' });
         }
 
         if (!order.isGuest) {
+            console.error('❌ Это не гостевой заказ:', orderId);
             return res.status(400).json({ message: 'Это не гостевой заказ' });
         }
 
         // Обновляем статус заказа после успешной оплаты
         order.status = 'Оплачен';
         await order.save();
+        console.log('✅ Статус гостевого заказа обновлен на "Оплачен"');
 
-        // Отправляем уведомление на email гостя
-        // await axios.post('https://palermo-light-backend-emailer.vercel.app/api/send-email', {
-        //     from: 'your-gmail-account@gmail.com',
-        //     to: order.guestInfo.email,
-        //     subject: 'Оплата подтверждена',
-        //     text: `Здравствуйте, ${order.guestInfo.name}!
+        // Отправляем email уведомление администратору
+        console.log('📧 Отправляем email уведомление администратору об оплате гостевого заказа...');
+        try {
+            const adminEmailResult = await sendEmail(
+                'infoelektromosru@gmail.com',
+                'Гостевой заказ оплачен - ЭлектроМОС',
+                `Гостевой заказ успешно оплачен!
 
-        //     Ваш заказ #${orderId} был успешно оплачен. Мы начнём его обработку в ближайшее время.
+ID заказа: ${order._id}
+Сумма: ${order.totalAmount} руб.
+Статус: Оплачен
 
-        //     Для отслеживания статуса заказа используйте ID: ${orderId}
+Гость: ${order.guestInfo.name} ${order.guestInfo.surname}
+Email: ${order.guestInfo.email}
+Телефон: ${order.guestInfo.phone}
+Адрес: ${order.guestInfo.address || 'Не указан'}
 
-        //     Если у вас есть вопросы, пожалуйста, свяжитесь с нашей службой поддержки - davidmonte00@mail.ru
+Товары:
+${order.products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
 
-        //     С уважением,
-        //     Команда Elektro-mos.`
-        // });
+Время оплаты: ${new Date().toLocaleString('ru-RU')}`
+            );
+            console.log('✅ Email администратору об оплате гостевого заказа отправлен:', adminEmailResult);
+        } catch (emailError) {
+            console.error('❌ Ошибка отправки email администратору об оплате гостевого заказа:', emailError);
+        }
+
+        // Отправляем email уведомление клиенту
+        console.log('📧 Отправляем email уведомление клиенту об оплате...');
+        try {
+            const clientEmailResult = await sendEmail(
+                order.guestInfo.email,
+                'Ваш заказ оплачен - ЭлектроМОС',
+                `Здравствуйте, ${order.guestInfo.name}!
+
+Ваш заказ успешно оплачен!
+
+Номер заказа: ${order._id}
+Сумма заказа: ${order.totalAmount} руб.
+Статус: Оплачен
+Время оплаты: ${new Date().toLocaleString('ru-RU')}
+
+Товары в заказе:
+${order.products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).join('\n')}
+
+Мы начнем обработку вашего заказа в ближайшее время.
+
+С уважением,
+Команда ЭлектроМОС
+Телефон: +7 (495) 123-45-67
+Email: infoelektromosru@gmail.com`
+            );
+            console.log('✅ Email клиенту об оплате отправлен:', clientEmailResult);
+        } catch (emailError) {
+            console.error('❌ Ошибка отправки email клиенту об оплате:', emailError);
+        }
 
         res.status(200).json({ 
             message: 'Статус гостевого заказа обновлён на "оплачен"' 
         });
     } catch (error) {
-        console.error(error);
+        console.error('❌ Ошибка обработки webhook гостевого заказа:', error);
         res.status(500).json({ message: 'Ошибка при обработке запроса' });
     }
 };

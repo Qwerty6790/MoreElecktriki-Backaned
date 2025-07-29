@@ -37,8 +37,9 @@ app.get('/', (req, res) => {
 
 // Запуск сервера на указанном порту
 app.listen(PORT, () => {
-    console.log(`Сервер запущен на порту ${PORT}`);
-    console.log(`http://localhost:${PORT}`);
+    console.log(`🚀 Сервер запущен на порту ${PORT}`);
+    console.log(`📡 API доступен по адресу: http://localhost:${PORT}`);
+    console.log(`📧 Email уведомления настроены для: infoelektromosru@gmail.com`);
 });
 
 // Планирование задачи обновления данных о продуктах каждые 3 часа
