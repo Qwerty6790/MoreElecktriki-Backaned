@@ -91,7 +91,7 @@ ${payment.confirmation.confirmation_url}
 • Начать обработку заказа
 
 ---
-ЭлектроМОС - Система управления заказами`
+Elektromos - Система управления заказами`
             );
             console.log('✅ Email администратору отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -104,7 +104,7 @@ ${payment.confirmation.confirmation_url}
             try {
                 const clientEmailResult = await sendEmail(
                     user.email,
-                    'Заказ создан - перейдите к оплате - ЭлектроМОС',
+                    'Заказ создан - перейдите к оплате - Elektromos',
                     `Здравствуйте, ${user.username}!
 
 Ваш пришел заказ!
@@ -121,8 +121,8 @@ ${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).jo
 ${payment.confirmation.confirmation_url}
 
 С уважением,
-Команда ЭлектроМОС
-Телефон: +7 (495) 123-45-67
+Команда Elektromos
+Телефон: +7 (903) 797-06-99
 Email: infoelektromosru@gmail.com`
                 );
                 console.log('✅ Email клиенту отправлен:', clientEmailResult);
@@ -201,7 +201,7 @@ ${order.products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} ру
 • Связаться с клиентом для уточнения доставки
 
 ---
-ЭлектроМОС - Система управления заказами`
+Elektromos - Система управления заказами`
             );
             console.log('✅ Email администратору об оплате отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -213,7 +213,7 @@ ${order.products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} ру
         try {
             const clientEmailResult = await sendEmail(
                 user.email,
-                'Ваш заказ оплачен - ЭлектроМОС',
+                'Ваш заказ оплачен - Elektromos',
                 `Здравствуйте, ${user.username}!
 
 Ваш заказ успешно оплачен!
@@ -229,8 +229,8 @@ ${order.products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб
 Мы начнем обработку вашего заказа в ближайшее время.
 
 С уважением,
-Команда ЭлектроМОС
-Телефон: +7 (495) 123-45-67
+Команда Elektromos
+Телефон: +7 (903) 797-06-99
 Email: infoelektromosru@gmail.com`
             );
             console.log('✅ Email клиенту об оплате отправлен:', clientEmailResult);
@@ -307,7 +307,7 @@ ${products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).
 • Подтвердить заказ
 
 ---
-ЭлектроМОС - Система управления заказами`
+Elektromos - Система управления заказами`
             );
             console.log('✅ Email администратору отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -320,7 +320,7 @@ ${products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).
             try {
                 const clientEmailResult = await sendEmail(
                     user.email,
-                    'Ваш заказ успешно создан - ЭлектроМОС',
+                    'Ваш заказ успешно создан - Elektromos',
                     `Здравствуйте, ${user.username}!
 
 Ваш заказ успешно создан!
@@ -336,8 +336,8 @@ ${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).jo
 Мы свяжемся с вами в ближайшее время для подтверждения заказа.
 
 С уважением,
-Команда ЭлектроМОС
-Телефон: +7 (495) 123-45-67
+Команда Elektromos
+Телефон: +7 (903) 797-06-99
 Email: infoelektromosru@gmail.com`
                 );
                 console.log('✅ Email клиенту отправлен:', clientEmailResult);
@@ -411,7 +411,7 @@ exports.updateProductInOrderStatus = async (req, res) => {
 
         // Отправка уведомления по электронной почте
         const user = await User.findById(order.userId);
-        await axios.post('https://palermo-light-backend-emailer.vercel.app/api/send-email', {
+        await axios.post('https://elektromos-backand.vercel.app', {
             from: 'your-gmail-account@gmail.com',
             to: user.email,
             subject: 'Статус товара в заказе изменён',
@@ -419,10 +419,10 @@ exports.updateProductInOrderStatus = async (req, res) => {
 
             Статус товара "${product.name}" в вашем заказе #${orderId} был изменён на "${status}". 
 
-            Если у вас есть вопросы, пожалуйста, свяжитесь с нашей службой поддержки - davidmonte00@mail.ru
+            Если у вас есть вопросы, пожалуйста, свяжитесь с нашей службой поддержки - 
 
             С уважением,
-            Команда Palermo Light.`
+            Команда Elektromos.`
         });
 
         res.status(200).json({ message: 'Состояние товара успешно изменено', product });
@@ -449,7 +449,7 @@ exports.updateOrderStatus = async (req, res) => {
 
         // Отправка уведомления по электронной почте
         const user = await User.findById(order.userId);
-        await axios.post('https://palermo-light-backend-emailer.vercel.app/api/send-email', {
+        await axios.post('https://elektromos-backand.vercel.app', {
             from: 'your-gmail-account@gmail.com',
             to: user.email,
             subject: 'Статус заказа изменён',
@@ -457,10 +457,10 @@ exports.updateOrderStatus = async (req, res) => {
 
             Статус вашего заказа #${orderId} был изменён на "${status}". 
 
-            Если у вас есть вопросы, пожалуйста, свяжитесь с нашей службой поддержки - davidmonte00@mail.ru
+            Если у вас есть вопросы, пожалуйста, свяжитесь с нашей службой поддержки - 
 
             С уважением,
-            Команда Palermo Light.`
+            Команда Elektromos.`
         });
 
         res.status(200).json({ message: 'Состояние заказа успешно изменено' });
@@ -602,7 +602,7 @@ ${payment.confirmation.confirmation_url}
 • Начать обработку заказа
 
 ---
-ЭлектроМОС - Система управления заказами`
+Elektromos - Система управления заказами`
             );
             console.log('✅ Email администратору отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -614,7 +614,7 @@ ${payment.confirmation.confirmation_url}
         try {
             const clientEmailResult = await sendEmail(
                 guestInfo.email,
-                'Ваш заказ создан - перейдите к оплате - ЭлектроМОС',
+                'Ваш заказ создан - перейдите к оплате - Elektromos',
                 `Здравствуйте, ${guestInfo.name}!
 
 Ваш заказ успешно создан!
@@ -631,8 +631,8 @@ ${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).jo
 ${payment.confirmation.confirmation_url}
 
 С уважением,
-Команда ЭлектроМОС
-Телефон: +7 (495) 123-45-67
+Команда Elektromos
+Телефон: +7 (903) 797-06-99
 Email: infoelektromosru@gmail.com`
             );
             console.log('✅ Email клиенту отправлен:', clientEmailResult);
@@ -732,7 +732,7 @@ ${products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).
 • Подтвердить заказ
 
 ---
-ЭлектроМОС - Система управления заказами`
+Elektromos - Система управления заказами`
             );
             console.log('✅ Email администратору отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -744,7 +744,7 @@ ${products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).
         try {
             const clientEmailResult = await sendEmail(
                 guestInfo.email,
-                'Ваш заказ успешно создан - ЭлектроМОС',
+                'Ваш заказ успешно создан - Elektromos',
                 `Здравствуйте, ${guestInfo.name}!
 
 Ваш заказ успешно создан!
@@ -760,8 +760,8 @@ ${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).jo
 Мы свяжемся с вами в ближайшее время для подтверждения заказа.
 
 С уважением,
-Команда ЭлектроМОС
-Телефон: +7 (495) 123-45-67
+Команда Elektromos
+Телефон: +7 (903) 797-06-99
 Email: infoelektromosru@gmail.com`
             );
             console.log('✅ Email клиенту отправлен:', clientEmailResult);
@@ -858,7 +858,7 @@ ${order.products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} ру
 • Связаться с клиентом для уточнения доставки
 
 ---
-ЭлектроМОС - Система управления заказами`
+Elektromos - Система управления заказами`
             );
             console.log('✅ Email администратору об оплате гостевого заказа отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -870,7 +870,7 @@ ${order.products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} ру
         try {
             const clientEmailResult = await sendEmail(
                 order.guestInfo.email,
-                'Ваш заказ оплачен - ЭлектроМОС',
+                'Ваш заказ оплачен - Elektromos',
                 `Здравствуйте, ${order.guestInfo.name}!
 
 Ваш заказ успешно оплачен!
@@ -886,8 +886,8 @@ ${order.products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб
 Мы начнем обработку вашего заказа в ближайшее время.
 
 С уважением,
-Команда ЭлектроМОС
-Телефон: +7 (495) 123-45-67
+Команда Elektromos
+Телефон: +7 (903) 797-06-99
 Email: infoelektromosru@gmail.com`
             );
             console.log('✅ Email клиенту об оплате отправлен:', clientEmailResult);
