@@ -12,7 +12,7 @@ const productRouter = require('./app/products/productRoutes');
 const ordersRouter = require('./app/orders/ordersRoutes');
 const usersRouter = require('./app/users/userRoutes');
 
-const { updateProductData } = require('./cronTasks'); // Импортируем задачу для обновления данных о продуктах
+// const { updateProductData } = require('./cronTasks'); // Импортируем задачу для обновления данных о продуктах
 
 const app = express(); // Создаем экземпляр приложения Express
 const PORT = process.env.PORT || 3007; // Устанавливаем порт для сервера

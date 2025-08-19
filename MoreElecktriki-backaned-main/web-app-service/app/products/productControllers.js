@@ -117,7 +117,7 @@ const findSuggestedCategories = (name) =>
         keywords.some(keyword => name.toLowerCase().includes(keyword))
     ).map(({ category }) => category);
 
-const buildQuery = ({ name, minPrice, maxPrice, source, description, material, article, socketType, lampCount, shadeColor, frameColor, showHidden = false, outOfStock = false, isNew = false }) => {
+const buildQuery = ({ name, minPrice, maxPrice, source, description, material, article, socketType, lampCount, shadeColor, frameColor, showHidden = false }) => {
     const query = {
         price: { $gte: parseFloat(minPrice) || 0, $lte: parseFloat(maxPrice) || Infinity }
     };
@@ -210,20 +210,6 @@ const buildQuery = ({ name, minPrice, maxPrice, source, description, material, a
         query.visible = { $ne: false };
     }
 
-    // Фильтрация товаров под заказ (товары которых нет в наличии)
-    if (outOfStock) {
-        query.$or = query.$or || [];
-        query.$or.push(
-            { stock: { $eq: 0 } },
-            { stock: { $exists: false } }
-        );
-    }
-
-    // Фильтрация новинок
-    if (isNew) {
-        query.isNew = true;
-    }
-
     return query;
 };
 
@@ -244,8 +230,6 @@ exports.getProducts = async (req, res) => {
             shadeColor,   // Новый параметр - цвет плафона
             frameColor,   // Новый параметр - цвет арматуры
             showHidden = false,
-            outOfStock = false,  // Новый параметр - товары под заказ
-            isNew = false,       // Новый параметр - новинки
             randomize = 'true'  // Устанавливаем по умолчанию значение 'true' как строку
         } = req.query;
         
@@ -261,9 +245,7 @@ exports.getProducts = async (req, res) => {
             lampCount,
             shadeColor,
             frameColor,
-            showHidden: showHidden === 'true',
-            outOfStock: outOfStock === 'true',
-            isNew: isNew === 'true'
+            showHidden: showHidden === 'true'
         });
 
         // Получаем товары и их общее количество
@@ -365,9 +347,7 @@ exports.searchProductsByName = async (req, res) => {
             lampCount,
             shadeColor,
             frameColor,
-            showHidden = false,
-            outOfStock = false,  // Новый параметр - товары под заказ
-            isNew = false        // Новый параметр - новинки
+            showHidden = false 
         } = req.query;
         
         // Используем функцию buildQuery для создания единообразного запроса
@@ -378,9 +358,7 @@ exports.searchProductsByName = async (req, res) => {
             lampCount,
             shadeColor,
             frameColor,
-            showHidden: showHidden === 'true',
-            outOfStock: outOfStock === 'true',
-            isNew: isNew === 'true'
+            showHidden: showHidden === 'true'
         });
         
         const [products, totalProducts] = await Promise.all([
@@ -411,9 +389,7 @@ exports.getSimilarProducts = async (req, res) => {
             shadeColor,
             frameColor,
             limit = 40, // Изменили значение по умолчанию на 40
-            showHidden = false,
-            outOfStock = false,  // Новый параметр - товары под заказ
-            isNew = false        // Новый параметр - новинки
+            showHidden = false 
         } = req.query;
         
         if (!keywords && !article) {
@@ -431,9 +407,7 @@ exports.getSimilarProducts = async (req, res) => {
             shadeColor,
             frameColor,
             article,
-            showHidden: showHidden === 'true',
-            outOfStock: outOfStock === 'true',
-            isNew: isNew === 'true'
+            showHidden: showHidden === 'true'
         });
         
         // Если есть ключевые слова, дополнительно добавляем к запросу
@@ -516,10 +490,6 @@ exports.updateProduct = async (req, res) => {
         if (price !== undefined) updateData.price = parseFloat(price);
         if (stock !== undefined) updateData.stock = parseInt(stock);
         if (imageAddress) updateData.imageAddress = imageAddress;
-        
-        // Автоматически помечаем товар как новинку при обновлении
-        updateData.isNew = true;
-        updateData.updatedAt = new Date();
         
         // Обновление товара в базе данных
         const updatedProduct = await ProductModel.findByIdAndUpdate(
@@ -638,9 +608,7 @@ exports.createProduct = async (req, res) => {
         stock: stock !== undefined ? parseInt(stock) : 0,
         source: source || 'Unknown',
         imageAddress: imageUrls,
-        visible: true,
-        isNew: true,           // Автоматически помечаем новый товар как новинку
-        updatedAt: new Date()  // Устанавливаем дату создания
+        visible: true
       });
   
       res.status(201).json({
@@ -652,49 +620,3 @@ exports.createProduct = async (req, res) => {
       res.status(500).json({ message: error.message });
     }
   };
-
-// Контроллер для получения новинок
-exports.getNewProducts = async (req, res) => {
-    try {
-        const { 
-            page = 1, 
-            limit = 40,
-            source,
-            socketType,
-            lampCount,
-            shadeColor,
-            frameColor,
-            showHidden = false 
-        } = req.query;
-        
-        // Используем buildQuery с принудительным isNew = true
-        const query = buildQuery({
-            source,
-            socketType,
-            lampCount,
-            shadeColor,
-            frameColor,
-            showHidden: showHidden === 'true',
-            isNew: true  // Принудительно ищем только новинки
-        });
-        
-        // Сортируем по дате обновления (новые сначала)
-        const [products, totalProducts] = await Promise.all([
-            ProductModel.find(query)
-                .sort({ updatedAt: -1 })  // Сортировка по дате обновления
-                .skip((page - 1) * limit)
-                .limit(+limit),
-            ProductModel.countDocuments(query)
-        ]);
-        
-        res.json({
-            totalProducts,
-            totalPages: Math.ceil(totalProducts / limit),
-            currentPage: +page,
-            products,
-            message: 'Новинки загружены'
-        });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
