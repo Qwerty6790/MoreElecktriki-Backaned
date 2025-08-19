@@ -4,9 +4,12 @@ const xml2js = require('xml2js');
 const { ProductModel } = require('../app/products/productModel');
 
 const connectToDatabase = async () => {
-  const mongoURI = 'mongodb+srv://Elecktro-mos:j13hvAQNBpEVEqdo@elecktro-mos.o6boe.mongodb.net/Elecktro-mos?retryWrites=true&w=majority&appName=Elecktro-mos';
+  const mongoURI = 'mongodb+srv://MoreElektriki:rIK9lXQI8wPnrqri@cluster0moreelecktirki.vacmh0p.mongodb.net/MoreElektriki?retryWrites=true&w=majority&appName=Cluster0MoreElecktirki';
   try {
-    await mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
+    await mongoose.connect(mongoURI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true
+    });
     console.log('Подключено к MongoDB');
   } catch (error) {
     console.error('Ошибка подключения к MongoDB:', error.message);
@@ -41,7 +44,7 @@ const fetchXMLData = async (url) => {
 const loadStockData = async () => {
   const stockURL = 'https://isonex.ru/upload/stocks.xml';
   const stockData = await fetchXMLData(stockURL);
-
+  
   if (!stockData || !stockData.data || !stockData.data.items || !stockData.data.items[0].item) {
     console.error('Остатки не найдены в XML stock.');
     return {};
@@ -65,6 +68,7 @@ const loadStockData = async () => {
 // Функция для получения массива изображений
 const getImages = (itemData) => {
   let images = [];
+  
   if (itemData.picture && itemData.picture.length) {
     images = itemData.picture.map(img => img.trim());
   } else if (itemData.properties && itemData.properties[0] && itemData.properties[0].property) {
@@ -72,12 +76,23 @@ const getImages = (itemData) => {
       .filter(p => p.$.name === "Фото на сайте")
       .map(p => p.$.value);
   }
-  return images.length ? images : []; // Гарантия, что это массив
+  
+  return images.length ? images : [];
+};
+
+// Функция для извлечения значения свойства
+const getPropertyValue = (properties, propertyName) => {
+  if (!properties || !properties[0] || !properties[0].property) {
+    return '';
+  }
+  
+  const property = properties[0].property.find(p => p.$.name === propertyName);
+  return property ? property.$.value || '' : '';
 };
 
 const uploadProductsByNovotechLight = async () => {
   await connectToDatabase();
-
+  
   const productsURL = 'https://isonex.ru/upload/catalog_files/novotech.xml';
   const result = await fetchXMLData(productsURL);
   const stockMap = await loadStockData();
@@ -102,8 +117,21 @@ const uploadProductsByNovotechLight = async () => {
       name: itemData.name?.[0] || '',
       price: parseFloat(itemData.price?.[0]) || 0,
       stock: stockMap[code] !== undefined ? stockMap[code] : parseInt(itemData.stock?.[0]) || 0,
-      imageAddress: images, // Гарантировано массив
-      source: 'NovotechLightProduct'
+      imageAddress: images,
+      source: 'NovotechLight',
+      visible: true, // По умолчанию товар видимый
+      
+      // Новые поля из схемы
+      socketType: getPropertyValue(itemData.properties, 'Тип цоколя лампы') || 
+                  getPropertyValue(itemData.properties, 'Цоколь') || '',
+      
+      lampCount: parseInt(getPropertyValue(itemData.properties, 'Количество ламп')) || 1,
+      
+      shadeColor: getPropertyValue(itemData.properties, 'Цвет плафона') || '',
+      
+      frameColor: getPropertyValue(itemData.properties, 'Цвет арматуры') || 
+                  getPropertyValue(itemData.properties, 'Цвет арматуры для КТ') || 
+                  getPropertyValue(itemData.properties, 'Цвет') || ''
     };
 
     if (!productData.name || !productData.article) {
@@ -117,7 +145,13 @@ const uploadProductsByNovotechLight = async () => {
         productData,
         { upsert: true, new: true }
       );
+      
       console.log(`Товар "${productData.name}" (артикул: ${productData.article}, код: ${code}) успешно обновлен/создан.`);
+      console.log(`  Цоколь: ${productData.socketType}`);
+      console.log(`  Количество ламп: ${productData.lampCount}`);
+      console.log(`  Цвет плафона: ${productData.shadeColor}`);
+      console.log(`  Цвет арматуры: ${productData.frameColor}`);
+      
     } catch (err) {
       console.error(`Ошибка при обновлении товара "${productData.name}":`, err);
     }
@@ -131,15 +165,3 @@ const uploadProductsByNovotechLight = async () => {
 uploadProductsByNovotechLight();
 
 module.exports = { uploadProductsByNovotechLight };
-
-
-
-
-
-
-
-
-
-
-
-

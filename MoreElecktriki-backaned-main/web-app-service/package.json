@@ -19,6 +19,7 @@
     "nodemailer": "^6.9.7",
     "p-queue": "^8.0.1",
     "queue": "^7.0.0",
+    "sax": "^1.4.1",
     "side-channel": "^1.1.0",
     "streamifier": "^0.1.1",
     "unzipper": "^0.12.3",

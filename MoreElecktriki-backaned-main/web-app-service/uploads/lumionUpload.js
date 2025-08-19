@@ -4,7 +4,7 @@ const xml2js = require('xml2js');
 const { ProductModel } = require('../app/products/productModel');
 
 const connectToDatabase = async () => {
-  const mongoURI = 'mongodb+srv://Elecktro-mos:j13hvAQNBpEVEqdo@elecktro-mos.o6boe.mongodb.net/Elecktro-mos?retryWrites=true&w=majority&appName=Elecktro-mos';
+  const mongoURI = 'mongodb+srv://MoreElektriki:rIK9lXQI8wPnrqri@cluster0moreelecktirki.vacmh0p.mongodb.net/MoreElektriki?retryWrites=true&w=majority&appName=Cluster0MoreElecktirki';
   try {
     await mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
     console.log('Подключено к MongoDB');
@@ -94,16 +94,30 @@ const uploadProductsByLumion = async () => {
 
   for (const itemData of products) {
     const code = itemData.code?.[0] || '';
-    const images = getImages(itemData);
+    const properties = itemData.properties?.[0]?.property || [];
+
+    // Функция для поиска свойства по имени
+    const getProperty = (name) => {
+      const prop = properties.find(p => p.$.name === name);
+      return prop ? prop.$.value : '';
+    };
 
     const productData = {
       article: itemData.article?.[0] || '',
-      code: code,
       name: itemData.name?.[0] || '',
       price: parseFloat(itemData.price?.[0]) || 0,
       stock: stockMap[code] !== undefined ? stockMap[code] : parseInt(itemData.stock?.[0]) || 0,
-      imageAddress: images, // Гарантировано массив
-      source: 'LumionProduct'
+      imageAddress: [
+        getProperty('Фото на сайте'),
+        getProperty('Ссылка на схему товара'),
+        getProperty('Ссылка на фото на цветном фоне_вкл')
+      ].filter(Boolean),
+      source: 'Lumion',
+      // Новые поля по светильникам
+      socketType: getProperty('Тип цоколя лампы') || getProperty('Цоколь'),
+      lampCount: parseInt(getProperty('Количество ламп')) || 1,
+      shadeColor: getProperty('Цвет плафона'),
+      frameColor: getProperty('Цвет арматуры'),
     };
 
     if (!productData.name || !productData.article) {
@@ -131,7 +145,6 @@ const uploadProductsByLumion = async () => {
 uploadProductsByLumion();
 
 module.exports = { uploadProductsByLumion };
-
 
 
 

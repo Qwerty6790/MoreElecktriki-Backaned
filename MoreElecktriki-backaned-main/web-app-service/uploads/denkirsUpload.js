@@ -3,10 +3,9 @@ const axios = require('axios');
 const xml2js = require('xml2js');
 const { ProductModel } = require('../app/products/productModel');
 
-// Функция подключения к MongoDB
+// Подключение к MongoDB
 const connectToDatabase = async () => {
-    const mongoUri = 'mongodb+srv://Elecktro-mos:j13hvAQNBpEVEqdo@elecktro-mos.o6boe.mongodb.net/Elecktro-mos?retryWrites=true&w=majority&appName=Elecktro-mos'; // Укажите ваш URI для MongoDB
-
+    const mongoUri = 'mongodb+srv://MoreElektriki:rIK9lXQI8wPnrqri@cluster0moreelecktirki.vacmh0p.mongodb.net/MoreElektriki?retryWrites=true&w=majority&appName=Cluster0MoreElecktirki';
     try {
         await mongoose.connect(mongoUri, {
             useNewUrlParser: true,
@@ -15,11 +14,60 @@ const connectToDatabase = async () => {
         console.log('Успешное подключение к MongoDB');
     } catch (error) {
         console.error('Ошибка подключения к MongoDB: ' + error.message);
-        process.exit(1); // Завершение процесса при ошибке подключения
+        process.exit(1);
     }
 };
 
-// Функция загрузки продуктов Denkirs
+// Функция для парсинга одного offer
+const parseOffer = (offer) => {
+    const price = parseFloat(offer.price) || 0;
+    const stock = parseInt(offer.stock) || 0;
+
+    if (price === 0) return null; // пропуск товаров с ценой 0
+
+    // Картинки
+    let imageAddress = [];
+    if (offer.picture) {
+        imageAddress = Array.isArray(offer.picture) ? offer.picture : [offer.picture];
+    }
+
+    // Основные поля
+    const article = offer.vendorCode || '';
+    const name = offer.name || '';
+    const source = offer.vendor || 'Denkirs';
+
+    // Параметры светильника из <param>
+    const param = {};
+    if (offer.param) {
+        const paramsArray = Array.isArray(offer.param) ? offer.param : [offer.param];
+        paramsArray.forEach(p => {
+            const key = p.$?.name?.toLowerCase() || '';
+            const value = p._ || '';
+            param[key] = value;
+        });
+    }
+
+    // Соответствие с твоей схемой
+    const socketType = param['тип цоколя'] || '';
+    const lampCount = param['количество ламп'] ? parseInt(param['количество ламп']) : 1;
+    const shadeColor = param['цвет плафона'] || '';
+    const frameColor = param['цвет арматуры'] || '';
+
+    return {
+        article,
+        name,
+        price,
+        stock,
+        imageAddress,
+        source,
+        socketType,
+        lampCount,
+        shadeColor,
+        frameColor,
+    };
+};
+
+// Функция загрузки и сохранения продуктов
 const uploadProductsByDenkirs = async () => {
     const url = 'https://dealer.denkirs.ru/catalog.xml';
 
@@ -41,46 +89,21 @@ const uploadProductsByDenkirs = async () => {
 
             console.log('Количество продуктов для обновления:', offers.length);
 
-            const updatePromises = offers.map((offer) => {
-                const price = parseFloat(offer.price) || 0;
-                const stock = parseInt(offer.stock) || 0;
+            const products = offers.map(parseOffer).filter(p => p !== null);
 
-                // Пропустить, если цена равна 0
-                if (price === 0) {
-                    return Promise.resolve();
+            for (const productData of products) {
+                try {
+                    const updatedProduct = await ProductModel.findOneAndUpdate(
+                        { article: productData.article },
+                        productData,
+                        { upsert: true, new: true }
+                    );
+                    console.log('Обновлено/создано:', updatedProduct.article);
+                } catch (err) {
+                    console.error('Ошибка сохранения:', err.message);
                 }
+            }
 
-                let imageAddress = offer.picture ? (Array.isArray(offer.picture) ? offer.picture : [offer.picture]) : [];
-
-                // Добавляем дополнительную фотографию
-                const additionalImage = "https://example.com/new-image.jpg";  // Замените на ваш URL изображения
-                imageAddress.push(additionalImage);  // Добавление новой фотографии
-
-                const productData = {
-                    article: offer.vendorCode || '',
-                    name: offer.name || '',
-                    price: price,
-                    stock: stock,
-                    imageAddress,
-                    source: 'DenkirsProduct', // Добавление источника
-                };
-
-                console.log('Данные для сохранения:', productData);
-
-                return ProductModel.findOneAndUpdate(
-                    { article: productData.article },
-                    productData,
-                    { upsert: true, new: true }
-                )
-                    .then((updatedProduct) => {
-                        console.log('Обновлено/создано:', updatedProduct);
-                    })
-                    .catch((err) => {
-                        console.error('Ошибка сохранения:', err.message);
-                    });
-            });
-
-            await Promise.all(updatePromises);
             console.log('Обновление данных продуктов завершено успешно.');
         });
     } catch (error) {
@@ -88,11 +111,10 @@ const uploadProductsByDenkirs = async () => {
     }
 };
 
-
 // Основная функция запуска
 const startApplication = async () => {
-    await connectToDatabase(); // Подключение к MongoDB
-    await uploadProductsByDenkirs(); // Загрузка данных
+    await connectToDatabase();
+    await uploadProductsByDenkirs();
 };
 
 startApplication();

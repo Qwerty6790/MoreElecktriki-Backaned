@@ -17,6 +17,14 @@ const productSchema = new mongoose.Schema({
     stock: { type: Number, default: 0 },         // Количество на складе
     source: { type: String, default: 'Unknown' }, // Источник данных
     visible: { type: Boolean, default: true },    // Видимость товара (для админки)
+    isNew: { type: Boolean, default: false },     // Пометка товара как новинка
+    updatedAt: { type: Date, default: Date.now },  // Дата последнего обновления
+
+    // Новые поля для светильников
+    socketType: { type: String, default: '' },     // Тип цоколя (E27, GU10 и т.д.)
+    lampCount: { type: Number, default: 1 },       // Количество ламп
+    shadeColor: { type: String, default: '' },     // Цвет плафона
+    frameColor: { type: String, default: '' },     // Цвет арматуры
 });
 
 // Создание модели для коллекции товаров

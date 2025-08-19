@@ -4,7 +4,7 @@ const xml2js = require('xml2js');
 const { ProductModel } = require('../app/products/productModel');
 
 const connectToDatabase = async () => {
-  const mongoURI = 'mongodb+srv://Elecktro-mos:j13hvAQNBpEVEqdo@elecktro-mos.o6boe.mongodb.net/Elecktro-mos?retryWrites=true&w=majority&appName=Elecktro-mos';
+  const mongoURI = 'mongodb+srv://MoreElektriki:rIK9lXQI8wPnrqri@cluster0moreelecktirki.vacmh0p.mongodb.net/MoreElektriki?retryWrites=true&w=majority&appName=Cluster0MoreElecktirki';
   try {
     await mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
     console.log('Подключено к MongoDB');
@@ -65,14 +65,38 @@ const loadStockData = async () => {
 // Функция для получения массива изображений
 const getImages = (itemData) => {
   let images = [];
+  
+  // Сначала проверяем поле picture
   if (itemData.picture && itemData.picture.length) {
-    images = itemData.picture.map(img => img.trim());
-  } else if (itemData.properties && itemData.properties[0] && itemData.properties[0].property) {
-    images = itemData.properties[0].property
-      .filter(p => p.$.name === "Фото на сайте")
-      .map(p => p.$.value);
+    images = itemData.picture.map(img => img.trim()).filter(img => img);
   }
-  return images.length ? images : []; // Гарантия, что это массив
+  
+  // Если picture пустое, ищем в properties
+  if (images.length === 0 && itemData.properties && itemData.properties[0] && itemData.properties[0].property) {
+    const photoProperty = itemData.properties[0].property.find(p => p.$.name === "Фото на сайте");
+    if (photoProperty && photoProperty.$.value) {
+      images = [photoProperty.$.value.trim()];
+    }
+  }
+  
+  return images.length ? images : [];
+};
+
+// Функция для извлечения значения свойства
+const getPropertyValue = (itemData, propertyName) => {
+  if (!itemData.properties || !itemData.properties[0] || !itemData.properties[0].property) {
+    return '';
+  }
+  
+  const property = itemData.properties[0].property.find(p => p.$.name === propertyName);
+  return property ? property.$.value : '';
+};
+
+// Функция для извлечения числового значения свойства
+const getPropertyNumber = (itemData, propertyName) => {
+  const value = getPropertyValue(itemData, propertyName);
+  const num = parseInt(value, 10);
+  return isNaN(num) ? 0 : num;
 };
 
 const uploadProductsOdeonLight = async () => {
@@ -97,15 +121,26 @@ const uploadProductsOdeonLight = async () => {
     const images = getImages(itemData);
 
     const productData = {
+      // Основные поля
       article: itemData.article?.[0] || '',
-      code: code,
       name: itemData.name?.[0] || '',
       price: parseFloat(itemData.price?.[0]) || 0,
+      imageAddress: images,
       stock: stockMap[code] !== undefined ? stockMap[code] : parseInt(itemData.stock?.[0]) || 0,
-      imageAddress: images, // Гарантировано массив
-      source: 'OdeonLightProduct'
+      source: 'OdeonLight',
+      visible: true,
+      
+      // Дополнительные поля для светильников
+      socketType: getPropertyValue(itemData, 'Тип цоколя лампы') || 
+                  getPropertyValue(itemData, 'Цоколь') || '',
+      lampCount: getPropertyNumber(itemData, 'Количество ламп'),
+      shadeColor: getPropertyValue(itemData, 'Цвет плафона') || 
+                  getPropertyValue(itemData, 'Цвет плафона для КТ') || '',
+      frameColor: getPropertyValue(itemData, 'Цвет арматуры') || 
+                  getPropertyValue(itemData, 'Цвет арматуры для КТ') || ''
     };
 
+    // Проверяем обязательные поля
     if (!productData.name || !productData.article) {
       console.warn(`Пропуск товара – отсутствует название или артикул (код: ${code}).`);
       continue;
@@ -118,6 +153,11 @@ const uploadProductsOdeonLight = async () => {
         { upsert: true, new: true }
       );
       console.log(`Товар "${productData.name}" (артикул: ${productData.article}, код: ${code}) успешно обновлен/создан.`);
+      console.log(`  - Цоколь: ${productData.socketType}`);
+      console.log(`  - Количество ламп: ${productData.lampCount}`);
+      console.log(`  - Цвет плафона: ${productData.shadeColor}`);
+      console.log(`  - Цвет арматуры: ${productData.frameColor}`);
+      console.log(`  - Изображений: ${productData.imageAddress.length}`);
     } catch (err) {
       console.error(`Ошибка при обновлении товара "${productData.name}":`, err);
     }

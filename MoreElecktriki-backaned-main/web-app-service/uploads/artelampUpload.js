@@ -1,22 +1,84 @@
 const mongoose = require('mongoose');
 const axios = require('axios');
 const xlsx = require('xlsx');
-const { ProductModel } = require('../app/products/productModel');  // Ensure this model is correctly defined and exported
+const { ProductModel } = require('../app/products/productModel');
 
-// Connect to MongoDB
+// --- Подключение к MongoDB
 const connectToDatabase = async () => {
-    const mongoURI = 'mongodb+srv://Elecktro-mos:j13hvAQNBpEVEqdo@elecktro-mos.o6boe.mongodb.net/Elecktro-mos?retryWrites=true&w=majority&appName=Elecktro-mos';  // Update this with your actual MongoDB URI
-
+    const mongoURI = 'mongodb+srv://MoreElektriki:rIK9lXQI8wPnrqri@cluster0moreelecktirki.vacmh0p.mongodb.net/MoreElektriki?retryWrites=true&w=majority&appName=Cluster0MoreElecktirki';
     try {
         await mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
         console.log('Connected to MongoDB');
     } catch (error) {
         console.error('Error connecting to MongoDB:', error.message);
-        process.exit(1); // Exit the process if connection fails
+        process.exit(1);
     }
 };
 
-// Parse the XLSX buffer and convert it to JSON
+
+
+// --- Маппинг колонок Excel → поля модели
+const columnMapping = {
+    article: ['Артикул поставщика', 'Артикул', 'Код'],
+    name: ['Наименование для сайта', 'Наименование', 'Название'],
+    price: ['РРЦ', 'Цена', 'Стоимость'],
+    stock: ['Свободный остаток (Регион)', 'Остаток', 'Количество на складе'],
+    imageAddress: ['Ссылка на изображение', 'Фото', 'Изображение'],
+
+    // Исправленные названия колонок
+    shadeColor: ['Цвет плафона/декора', 'Цвет плафона', 'Плафон цвет', 'Цвет абажура'],
+    frameColor: ['Цвет арматуры', 'Арматура цвет', 'Цвет корпуса'],
+    
+    // Добавляем лампы
+    lampCount: ['Количество патронов', 'Патроны', 'Кол-во ламп']
+    // socketType убран - оставляем пустым для Artelamp
+};
+
+// --- Дополнительные колонки для ламп (если есть вторые колонки)
+const lampColumns = {
+    count: ['Количество патронов', 'Количество патронов 2']
+    // type убран - не используется для Artelamp
+};
+
+// --- Утилита: найти ключ по синонимам
+const getValue = (row, field) => {
+    const synonyms = columnMapping[field];
+    if (!synonyms) return null;
+
+    for (const key of synonyms) {
+        if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+            return row[key];
+        }
+    }
+    return null;
+};
+
+// --- Утилита: обработка типа лампы
+const processSocketType = (socketType) => {
+    if (!socketType) return '';
+    
+    return String(socketType).trim();
+};
+
+// --- Получаем данные для ламп (только количество, тип цоколя оставляем пустым)
+const getLampData = (row) => {
+    // Получаем только количество ламп
+    let lampCount = getValue(row, 'lampCount');
+    
+    // Если не нашли, пытаемся из дополнительных колонок
+    if (!lampCount) {
+        const count1 = row[lampColumns.count[0]];
+        const count2 = row[lampColumns.count[1]];
+        lampCount = lampCount || count1 || count2;
+    }
+
+    return {
+        lampCount: parseInt(lampCount || 1, 10),
+        socketType: ''  // Всегда пустая строка для Artelamp
+    };
+};
+
+// --- Парсинг XLSX
 const parseXLSX = async (buffer) => {
     try {
         const workbook = xlsx.read(buffer, { type: 'buffer' });
@@ -28,84 +90,98 @@ const parseXLSX = async (buffer) => {
     }
 };
 
-// Upload products from Artelamp (parse and update MongoDB)
+// --- Загрузка товаров
 const uploadProductsByArtelamp = async () => {
     const url = 'https://yarusvsm.ru/ftp/Выгрузки/full.xlsx';
 
     try {
         const response = await axios.get(url, { responseType: 'arraybuffer' });
-        const xlsxData = response.data;
-        const products = await parseXLSX(xlsxData);
+        const products = await parseXLSX(response.data);
 
-        // Выведем первую строку полностью для анализа
         console.log('Первая строка данных:', JSON.stringify(products[0], null, 2));
+        console.log('Ключи первой строки:', Object.keys(products[0]));
+
+        let successCount = 0;
+        let skippedCount = 0;
 
         for (const row of products) {
-            // Выведем все ключи и их значения для отладки
-            Object.entries(row).forEach(([key, value]) => {
-                console.log(`Колонка: "${key}" => Значение: "${value}"`);
-            });
-            
-            // Получаем изображения из правильной колонки
-            const imageAddress = row['Ссылка на изображение'] ? row['Ссылка на изображение'].split(';').map(img => img.trim()) : [];
-            
-            console.log(`Найденные URL изображений:`, imageAddress);
+            const imageAddress = getValue(row, 'imageAddress')
+                ? String(getValue(row, 'imageAddress')).split(';').map(img => img.trim())
+                : [];
 
-            // Добавляем новую строку к массиву imageAddress
-            const additionalImage = "https://example.com/new-image.jpg";  // Replace with your image URL
-            imageAddress.push(additionalImage);  // Adding a new URL to the array
+            const lampData = getLampData(row);
 
             const productData = {
-                article: row['Артикул поставщика'] || '',
-                name: row['Наименование для сайта'] || '',
-                price: parseFloat(row['РРЦ']) || 0,
-                stock: parseInt(row['Свободный остаток (Регион)'], 10) || 0,
+                article: getValue(row, 'article') || '',
+                name: getValue(row, 'name') || '',
+                price: parseFloat(getValue(row, 'price')) || 0,
+                stock: parseInt(getValue(row, 'stock'), 10) || 0,
                 imageAddress,
-                source: 'ArtelampProduct',
+                source: 'Artelamp',
+
+                lampCount: lampData.lampCount,
+                socketType: lampData.socketType,
+
+                shadeColor: getValue(row, 'shadeColor') || '',
+                frameColor: getValue(row, 'frameColor') || ''
             };
 
-            // Отладочная информация
             console.log('Обработанные данные продукта:', {
                 article: productData.article,
                 name: productData.name,
-                imageAddress: productData.imageAddress
+                price: productData.price,
+                stock: productData.stock,
+                lampCount: productData.lampCount,
+                socketType: productData.socketType,
+                shadeColor: productData.shadeColor,
+                frameColor: productData.frameColor
             });
 
-            // Skip rows with missing mandatory data or zero stock
             if (!productData.article || !productData.name || !productData.price || productData.stock <= 0) {
-                console.warn('Skipping row due to missing mandatory data or zero stock:', row);
+                console.warn('Пропускаем строку из-за отсутствующих обязательных данных или нулевого остатка:', {
+                    article: productData.article,
+                    name: productData.name,
+                    price: productData.price,
+                    stock: productData.stock
+                });
+                skippedCount++;
                 continue;
             }
 
             try {
-                // Upsert product data into MongoDB
                 await ProductModel.findOneAndUpdate(
-                    { article: productData.article }, // Search by article
-                    productData, // Data to update or insert
-                    { upsert: true, new: true } // If not found, insert new; if found, update
+                    { article: productData.article },
+                    productData,
+                    { upsert: true, new: true }
                 );
-                console.log(`Product successfully updated: ${productData.article}`);
+                console.log(`Товар успешно обновлен: ${productData.article}`);
+                successCount++;
             } catch (err) {
-                console.error(`Error updating product: ${productData.article}`, err.message);
+                console.error(`Ошибка обновления товара: ${productData.article}`, err.message);
             }
         }
+
+        console.log(`\nИтого обработано: ${products.length} строк`);
+        console.log(`Успешно обновлено: ${successCount} товаров`);
+        console.log(`Пропущено: ${skippedCount} товаров`);
+
     } catch (error) {
-        console.error('Error downloading or processing XLSX:', error.message);
+        console.error('Ошибка загрузки или обработки XLSX:', error.message);
     }
 };
-// Main function to connect to DB and upload products
+
+// --- Main
 const main = async () => {
     try {
-        await connectToDatabase();  // Connect to MongoDB
-        await uploadProductsByArtelamp();  // Upload products from Artelamp
-        await mongoose.connection.close();  // Close the MongoDB connection
-        console.log('MongoDB connection closed.');
+        await connectToDatabase();
+        await uploadProductsByArtelamp();
+        await mongoose.connection.close();
+        console.log('Соединение с MongoDB закрыто.');
     } catch (error) {
-        console.error('Error during the process:', error.message);
+        console.error('Ошибка в процессе выполнения:', error.message);
     }
 };
 
-// Run the script
 main();
 
-module.exports = { uploadProductsByArtelamp };  // Export the upload function if needed
+module.exports = { uploadProductsByArtelamp };

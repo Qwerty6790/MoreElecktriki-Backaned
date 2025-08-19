@@ -3,8 +3,9 @@ const axios = require('axios');
 const xml2js = require('xml2js');
 const { ProductModel } = require('../app/products/productModel');
 
+// Подключение к MongoDB
 const connectToDatabase = async () => {
-    const mongoURI = 'mongodb+srv://Elecktro-mos:j13hvAQNBpEVEqdo@elecktro-mos.o6boe.mongodb.net/Elecktro-mos?retryWrites=true&w=majority&appName=Elecktro-mos';
+    const mongoURI = 'mongodb+srv://MoreElektriki:rIK9lXQI8wPnrqri@cluster0moreelecktirki.vacmh0p.mongodb.net/MoreElektriki?retryWrites=true&w=majority&appName=Cluster0MoreElecktirki';
     try {
         await mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
         console.log('Подключено к MongoDB');
@@ -14,65 +15,89 @@ const connectToDatabase = async () => {
     }
 };
 
-const checkImageExists = async (url) => {
-    try {
-        await axios.head(url);
-        return true;
-    } catch (error) {
-        return false;
-    }
-};
-
+// Основной парсинг и обновление товаров
 const uploadProductsByFavouriteLight = async () => {
     const productUrl = "https://ftp.favourite-light.com/ForClients/export/import.xml";
     const offerUrl = "https://ftp.favourite-light.com/ForClients/export/offers.xml";
 
     try {
         await connectToDatabase();
-        
+
+        // Получаем XML с товарами
         const productResponse = await axios.get(productUrl);
         const productXmlData = productResponse.data;
         const productResult = await xml2js.parseStringPromise(productXmlData);
         const products = productResult.Данные.Номенклатура;
 
+        // Получаем XML с остатками/ценами
         const offerResponse = await axios.get(offerUrl);
         const offerXmlData = offerResponse.data;
         const offerResult = await xml2js.parseStringPromise(offerXmlData);
         const offerElements = offerResult.Данные.Номенклатура;
 
         const updatePromises = products.map(async (lightData) => {
-            const offer = offerElements.find(o => o.$.Имя === lightData.$.Имя);
             const article = lightData.$.Имя;
 
-            // Предполагаем, что ссылки на изображения находятся в поле lightData.СсылкиНаФото
+            // Ищем соответствующее предложение с ценой и остатком
+            const offer = offerElements.find(o => o.$.Имя === article);
+
+            // Преобразуем ссылки на фото в массив
             const imageAddresses = lightData.СсылкиНаФото && lightData.СсылкиНаФото[0]
                 ? lightData.СсылкиНаФото[0].split(',').map(url => url.trim())
                 : [];
 
-            if (imageAddresses.length === 0) {
-                console.log(`Нет изображений для артикула: ${article}`);
-            }
+            // Остаток
+            const stockQuantity = offer && offer.Остаток && offer.Остаток[0]
+                ? parseInt(offer.Остаток[0]) || 0
+                : 0;
 
-            const rawStock = offer && offer.Остаток && offer.Остаток[0] ? offer.Остаток[0] : '0';
-            const stockQuantity = isNaN(parseInt(rawStock)) ? 0 : parseInt(rawStock);
-            const price = offer && offer.ЦенаРРЦ && offer.ЦенаРРЦ[0] ? parseInt(offer.ЦенаРРЦ[0]) || 0 : 0;
+            // Цена
+            const price = offer && offer.ЦенаРРЦ && offer.ЦенаРРЦ[0]
+                ? parseFloat(offer.ЦенаРРЦ[0]) || 0
+                : 0;
 
-            console.log(`Обрабатываем артикул: ${article}, Остаток: ${rawStock} -> ${stockQuantity}, Цена: ${price}, Фото: ${imageAddresses.length}`);
+            // Количество ламп
+            const lampCount = lightData.КоличествоЛамп && lightData.КоличествоЛамп[0]
+                ? parseInt(lightData.КоличествоЛамп[0]) || 1
+                : 1;
+
+            // Цоколь
+            const socketType = lightData.Цоколь && lightData.Цоколь[0]
+                ? lightData.Цоколь[0]
+                : '';
+
+            // Цвет плафона
+            const shadeColor = lightData.МатериалИЦветПлафона && lightData.МатериалИЦветПлафона[0]
+                ? lightData.МатериалИЦветПлафона[0]
+                : '';
+
+            // Цвет арматуры
+            const frameColor = lightData.ЦветОтделка && lightData.ЦветОтделка[0]
+                ? lightData.ЦветОтделка[0]
+                : '';
 
             const productData = {
                 article,
-                name: lightData.ПолноеНаименование[0],
+                name: lightData.ПолноеНаименование[0] || article,
                 price,
                 stock: stockQuantity,
-                imageAddress: imageAddresses, // Используем полученные URL'ы из XML
-                source: 'FavouriteProduct'
+                imageAddress: imageAddresses,
+                source: 'Favourite',
+                socketType,
+                lampCount,
+                shadeColor,
+                frameColor
             };
 
             return ProductModel.findOneAndUpdate(
                 { article: productData.article },
                 productData,
                 { upsert: true, new: true }
-            );
+            ).then(() => {
+                console.log(`Обновлен артикул: ${article}`);
+            }).catch(err => {
+                console.error(`Ошибка при сохранении артикула ${article}:`, err.message);
+            });
         });
 
         await Promise.all(updatePromises);
@@ -80,9 +105,10 @@ const uploadProductsByFavouriteLight = async () => {
         mongoose.connection.close();
         console.log('Соединение с MongoDB закрыто.');
     } catch (error) {
-        console.error('Ошибка загрузки XML:', error.message);
+        console.error('Ошибка загрузки или парсинга XML:', error.message);
     }
 };
 
+// Запуск
 uploadProductsByFavouriteLight();
 module.exports = { uploadProductsByFavouriteLight };

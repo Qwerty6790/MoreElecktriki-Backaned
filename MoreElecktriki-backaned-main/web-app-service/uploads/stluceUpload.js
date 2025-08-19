@@ -6,7 +6,7 @@ const { ProductModel } = require('../app/products/productModel');
 
 // Функция для подключения к MongoDB
 const connectToDatabase = async () => {
-    const mongoURI = 'mongodb+srv://Elecktro-mos:j13hvAQNBpEVEqdo@elecktro-mos.o6boe.mongodb.net/Elecktro-mos?retryWrites=true&w=majority&appName=Elecktro-mos';
+    const mongoURI = 'mongodb+srv://MoreElektriki:rIK9lXQI8wPnrqri@cluster0moreelecktirki.vacmh0p.mongodb.net/MoreElektriki?retryWrites=true&w=majority&appName=Cluster0MoreElecktirki';
     try {
         await mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
         console.log('Подключено к MongoDB');
@@ -19,7 +19,7 @@ const connectToDatabase = async () => {
 // Функция для парсинга XML
 const parseXML = async (xml) => {
     return new Promise((resolve, reject) => {
-        xml2js.parseString(xml, { explicitArray: true, trim: true }, (err, result) => {
+        xml2js.parseString(xml, { explicitArray: false, trim: true }, (err, result) => {
             if (err) {
                 reject('Ошибка парсинга XML: ' + err);
             } else {
@@ -29,60 +29,121 @@ const parseXML = async (xml) => {
     });
 };
 
+// Функция для извлечения значения параметра по имени
+const getParamValue = (params, paramName) => {
+    if (!params || !Array.isArray(params)) return '';
+    
+    const param = params.find(p => p.$.name === paramName);
+    return param ? (param._ || '').toString().trim() : '';
+};
+
 // Загрузка и обработка продуктов из XML
 const uploadProductsByStluce = async () => {
-    await connectToDatabase(); // Подключаемся к базе данных
+    await connectToDatabase();
 
     const url = 'https://stluce.ru/upload/1c/stluce_mrc.xml';
     
     try {
+        console.log('Загружаем XML данные...');
         const response = await axios.get(url, { responseType: 'arraybuffer' });
         const xmlData = iconv.decode(response.data, 'windows-1251');
         const result = await parseXML(xmlData);
 
-        if (!result?.yml_catalog?.shop?.[0]?.offers?.[0]?.offer) {
+        // Проверяем структуру данных
+        if (!result?.yml_catalog?.shop?.offers?.offer) {
             console.error('Offers not found in XML data.');
+            console.log('Available structure:', JSON.stringify(result, null, 2).substring(0, 500));
             return;
         }
 
-        const products = result.yml_catalog.shop[0].offers[0].offer;
+        let offers = result.yml_catalog.shop.offers.offer;
+        
+        // Если offer не массив, превращаем в массив
+        if (!Array.isArray(offers)) {
+            offers = [offers];
+        }
 
-        for (const lightData of products) {
-            const images = lightData.picture ? lightData.picture.map(img => img.trim()) : [];
+        console.log(`Найдено ${offers.length} товаров для обработки`);
 
-            // Add a new image URL (string) to the image array
-            const additionalImage = "https://example.com/new-image.jpg"; // Replace with your image URL
-            images.push(additionalImage); // Add the new image URL to the array
+        let processedCount = 0;
+        let errorCount = 0;
 
-            const productData = {
-                article: lightData.model?.[0] || '',
-                name: lightData.name?.[0] || '',
-                price: parseFloat(lightData.price?.[0]) || 0,
-                stock: parseInt(lightData.stock?.[0]) || 0,
-                imageAddress: images, // Store all image URLs in an array
-                source: 'StluceProduct',
-            };
-
-            if (!productData.article || !productData.name) {
-                console.warn(`Skipping product due to missing required fields: ${productData.article}`);
-                continue;
-            }
-
+        for (const lightData of offers) {
             try {
+                // Извлекаем изображения - может быть строкой или массивом
+                let images = [];
+                if (lightData.picture) {
+                    if (Array.isArray(lightData.picture)) {
+                        images = lightData.picture.map(img => img.trim());
+                    } else {
+                        images = [lightData.picture.trim()];
+                    }
+                }
+
+                // Извлекаем параметры из массива param
+                const params = lightData.param || [];
+                const lampCount = getParamValue(params, 'Количество ламп');
+                const socketType = getParamValue(params, 'Тип цоколя');
+                const frameColor = getParamValue(params, 'Цвет каркаса');
+                const shadeColor = getParamValue(params, 'Цвет плафона');
+
+                const productData = {
+                    article: lightData.model || '',
+                    name: lightData.name || '',
+                    price: parseFloat(lightData.price) || 0,
+                    stock: parseInt(lightData.stock) || 0,
+                    imageAddress: images,
+                    source: 'Stluce',
+                    
+                    // Новые поля для светильников
+                    socketType: socketType,
+                    lampCount: parseInt(lampCount) || 1,
+                    shadeColor: shadeColor,
+                    frameColor: frameColor,
+                };
+
+                // Проверяем обязательные поля
+                if (!productData.article || !productData.name) {
+                    console.warn(`Пропускаем товар из-за отсутствующих обязательных полей. Артикул: ${productData.article}, Название: ${productData.name}`);
+                    errorCount++;
+                    continue;
+                }
+
+                // Обновляем или создаем товар в базе данных
                 await ProductModel.findOneAndUpdate(
                     { article: productData.article },
                     productData,
                     { upsert: true, new: true }
                 );
-                console.log(`Product with article ${productData.article} updated successfully.`);
+
+                processedCount++;
+                console.log(`✓ Товар ${productData.article} (${productData.name}) успешно обработан`);
+                
+                // Логируем подробности для первых 3 товаров
+                if (processedCount <= 3) {
+                    console.log(`  - Цена: ${productData.price}`);
+                    console.log(`  - Остаток: ${productData.stock}`);
+                    console.log(`  - Изображений: ${images.length}`);
+                    console.log(`  - Тип цоколя: ${productData.socketType}`);
+                    console.log(`  - Количество ламп: ${productData.lampCount}`);
+                    console.log(`  - Цвет каркаса: ${productData.frameColor}`);
+                    console.log(`  - Цвет плафона: ${productData.shadeColor}`);
+                }
+
             } catch (err) {
-                console.error(`Error updating product with article ${productData.article}:`, err);
+                console.error(`Ошибка при обработке товара ${lightData.model || 'неизвестный'}:`, err.message);
+                errorCount++;
             }
         }
 
-        console.log('All products successfully updated or created.');
+        console.log(`\n=== Результаты обработки ===`);
+        console.log(`Всего товаров: ${offers.length}`);
+        console.log(`Успешно обработано: ${processedCount}`);
+        console.log(`Ошибок: ${errorCount}`);
+
     } catch (error) {
-        console.error('Error fetching or parsing XML data: ' + error.message);
+        console.error('Ошибка при загрузке или парсинге XML данных:', error.message);
+        console.error('Stack trace:', error.stack);
     } finally {
         mongoose.connection.close();
         console.log('Соединение с MongoDB закрыто.');

@@ -3,7 +3,7 @@ const xml2js = require('xml2js');
 const mongoose = require('mongoose');
 const { ProductModel } = require('../app/products/productModel');
 
-const mongoURI = 'mongodb+srv://Elecktro-mos:j13hvAQNBpEVEqdo@elecktro-mos.o6boe.mongodb.net/Elecktro-mos?retryWrites=true&w=majority&appName=Elecktro-mos';
+const mongoURI = 'mongodb+srv://MoreElektriki:rIK9lXQI8wPnrqri@cluster0moreelecktirki.vacmh0p.mongodb.net/MoreElektriki?retryWrites=true&w=majority&appName=Cluster0MoreElecktirki';
 
 const connectToDatabase = async () => {
     try {
@@ -55,7 +55,7 @@ const uploadProductsByWerkel = async () => {
                     price: price,
                     stock: stock,
                     imageAddress: imageAddresses.length > 0 ? imageAddresses[0] : '', // Используем строку вместо массива
-                    source: 'WerkelProduct'
+                    source: 'Werkel'
                 };
 
                 return ProductModel.findOneAndUpdate(

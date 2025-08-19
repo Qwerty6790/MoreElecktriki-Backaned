@@ -5,7 +5,7 @@ const { ProductModel } = require('../app/products/productModel');
 
 // Функция для подключения к MongoDB, возвращает объект подключения
 const connectToDatabase = async () => {
-    const mongoURI = 'mongodb+srv://Elecktro-mos:j13hvAQNBpEVEqdo@elecktro-mos.o6boe.mongodb.net/Elecktro-mos?retryWrites=true&w=majority&appName=Elecktro-mos';
+    const mongoURI = 'mongodb+srv://MoreElektriki:rIK9lXQI8wPnrqri@cluster0moreelecktirki.vacmh0p.mongodb.net/MoreElektriki?retryWrites=true&w=majority&appName=Cluster0MoreElecktirki';
 
     try {
         const connection = await mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
@@ -147,7 +147,7 @@ const uploadProductsByLightStar = async () => {
                         price: isNaN(retailPrice) ? 0 : retailPrice,
                         stock,
                         imageAddress, // Используем поле imageAddress из схемы
-                        source: 'LightStarProduct'
+                        source: 'LightStar'
                     };
 
                     // Пропускаем товары без обязательных полей (артикул и название)

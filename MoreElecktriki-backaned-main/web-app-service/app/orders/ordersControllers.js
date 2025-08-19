@@ -5,8 +5,8 @@ const YooKassa  = require('yookassa'); // Импортируем библиот�
 
 // Настройки для ЮKassa
 const yooKassa = new YooKassa({
-    shopId: '1108942', // Укажите ваш shopId
-    secretKey: 'test_DXi-fT28EEr4xza_ghdwpaX0UcP1bH__vdEn3PkzRwI' // Укажите ваш secretKey
+    shopId: '', // Укажите ваш shopId
+    secretKey: '' // Укажите ваш secretKey
 });
 
 // Функция для создания заказа и начала оплаты
@@ -45,7 +45,7 @@ exports.addOrderWithPayment = async (req, res) => {
             },
             confirmation: {
                 type: 'redirect', // Пользователь будет перенаправлен для оплаты
-                return_url: `https://elektromos.ru/payment-success/${order._id}`
+                return_url: `https://moreelecktirki.ru/payment-success/${order._id}`
             },
             capture: true, // Автоматическое подтверждение платежа
             description: `Оплата заказа #${order._id}`,
@@ -61,7 +61,7 @@ exports.addOrderWithPayment = async (req, res) => {
         console.log('📧 Отправляем email уведомление администратору...');
         try {
             const adminEmailResult = await sendEmail(
-                'infoelektromosru@gmail.com',
+                '',
                 '💳 Новый заказ с оплатой #' + order._id,
                 `ЗАКАЗ СОЗДАН
 
@@ -121,7 +121,7 @@ ${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).jo
 ${payment.confirmation.confirmation_url}
 
 С уважением,
-Команда Elektromos
+Команда MoreElektriki
 Телефон: +7 (903) 797-06-99
 Email: infoelektromosru@gmail.com`
                 );
@@ -176,7 +176,7 @@ exports.handlePaymentNotification = async (req, res) => {
         console.log('📧 Отправляем email уведомление администратору об оплате...');
         try {
             const adminEmailResult = await sendEmail(
-                'infoelektromosru@gmail.com',
+                '',
                 '✅ Заказ оплачен #' + order._id,
                 `ЗАКАЗ ОПЛАЧЕН
 

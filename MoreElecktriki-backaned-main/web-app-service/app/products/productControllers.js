@@ -3,8 +3,8 @@ const { v2: cloudinary } = require('cloudinary');
 const streamifier = require('streamifier');
 
 const validSources = [
-    'OdeonLightProduct','StluceProduct','FavouriteProduct', 'LightStarProduct', 'MaytoniProduct',
-    'ElektroStandardProduct', 'DenkirsProduct', 'WerkelProduct', 'KinkLightProduct', 'NovotechLightProduct','LumionProduct','ArtelampProduct','SonexProduct','VoltumProduct', 'ЧТКProduct', 'DonelProduct','DonelluxProduct' 
+    'OdeonLight','Stluce','Favourite', 'LightStar', 'Maytoni',
+    'ElektroStandard', 'Denkirs', 'Werkel', 'KinkLight', 'NovotechLight','Lumion','Artelamp','Sonex','Voltum', 
 ];
 
 const categorySuggestions = [
@@ -117,14 +117,83 @@ const findSuggestedCategories = (name) =>
         keywords.some(keyword => name.toLowerCase().includes(keyword))
     ).map(({ category }) => category);
 
-const buildQuery = ({ name, minPrice, maxPrice, source, description, material, article, showHidden = false }) => {
+const buildQuery = ({ name, minPrice, maxPrice, source, description, material, article, socketType, lampCount, shadeColor, frameColor, showHidden = false, outOfStock = false, isNew = false }) => {
     const query = {
-        name: new RegExp(name.split(',')[0] || '', 'i'),  // Регулярное выражение для названия
-        price: { $gte: parseFloat(minPrice) || 0, $lte: parseFloat(maxPrice) || Infinity },
-        ...(description && { description: new RegExp(description, 'i') }),
-        ...(material && { description: new RegExp(material, 'i') }),
-        ...(article && { article: new RegExp(article, 'i') })
+        price: { $gte: parseFloat(minPrice) || 0, $lte: parseFloat(maxPrice) || Infinity }
     };
+
+    // Обработка названия товара - поиск по названию ИЛИ по новым полям с ключевыми словами
+    if (name) {
+        const namePattern = name.split(',')[0] || '';
+        const nameRegex = new RegExp(namePattern, 'i');
+        
+        // Создаем массив условий для $or - поиск в названии или в специальных полях
+        const orConditions = [
+            { name: nameRegex }
+        ];
+        
+        // Добавляем поиск по ключевым словам в полях светильников
+        if (namePattern) {
+            orConditions.push(
+                { socketType: nameRegex },
+                { shadeColor: nameRegex },
+                { frameColor: nameRegex }
+            );
+        }
+        
+        query.$or = orConditions;
+    }
+
+    // Дополнительные фильтры
+    if (description) query.description = new RegExp(description, 'i');
+    if (material) query.description = new RegExp(material, 'i');
+    if (article) query.article = new RegExp(article, 'i');
+    
+    // Новые фильтры для светильников
+    if (socketType) {
+        // Поиск по точному совпадению или ключевым словам в названии
+        query.$and = query.$and || [];
+        query.$and.push({
+            $or: [
+                { socketType: new RegExp(socketType, 'i') },
+                { name: new RegExp(socketType, 'i') }
+            ]
+        });
+    }
+    
+    if (lampCount) {
+        const count = parseInt(lampCount);
+        if (!isNaN(count)) {
+            query.$and = query.$and || [];
+            query.$and.push({
+                $or: [
+                    { lampCount: count },
+                    { name: new RegExp(`${count}.*лам`, 'i') }, // Поиск "2 лампы", "3 лампы" в названии
+                    { name: new RegExp(`${count}х`, 'i') }      // Поиск "2х", "3х" в названии
+                ]
+            });
+        }
+    }
+    
+    if (shadeColor) {
+        query.$and = query.$and || [];
+        query.$and.push({
+            $or: [
+                { shadeColor: new RegExp(shadeColor, 'i') },
+                { name: new RegExp(shadeColor, 'i') }
+            ]
+        });
+    }
+    
+    if (frameColor) {
+        query.$and = query.$and || [];
+        query.$and.push({
+            $or: [
+                { frameColor: new RegExp(frameColor, 'i') },
+                { name: new RegExp(frameColor, 'i') }
+            ]
+        });
+    }
 
     // Для фильтрации по бренду
     if (source) {
@@ -141,6 +210,20 @@ const buildQuery = ({ name, minPrice, maxPrice, source, description, material, a
         query.visible = { $ne: false };
     }
 
+    // Фильтрация товаров под заказ (товары которых нет в наличии)
+    if (outOfStock) {
+        query.$or = query.$or || [];
+        query.$or.push(
+            { stock: { $eq: 0 } },
+            { stock: { $exists: false } }
+        );
+    }
+
+    // Фильтрация новинок
+    if (isNew) {
+        query.isNew = true;
+    }
+
     return query;
 };
 
@@ -148,7 +231,7 @@ exports.getProducts = async (req, res) => {
     try {
         const { 
             page = 1, 
-            limit = 18, 
+            limit = 40, // Изменили значение по умолчанию на 40
             name = '', 
             minPrice, 
             maxPrice, 
@@ -156,7 +239,13 @@ exports.getProducts = async (req, res) => {
             description, 
             material,
             article,
+            socketType,   // Новый параметр - тип цоколя
+            lampCount,    // Новый параметр - количество ламп
+            shadeColor,   // Новый параметр - цвет плафона
+            frameColor,   // Новый параметр - цвет арматуры
             showHidden = false,
+            outOfStock = false,  // Новый параметр - товары под заказ
+            isNew = false,       // Новый параметр - новинки
             randomize = 'true'  // Устанавливаем по умолчанию значение 'true' как строку
         } = req.query;
         
@@ -168,7 +257,13 @@ exports.getProducts = async (req, res) => {
             description, 
             material,
             article,
-            showHidden: showHidden === 'true'
+            socketType,
+            lampCount,
+            shadeColor,
+            frameColor,
+            showHidden: showHidden === 'true',
+            outOfStock: outOfStock === 'true',
+            isNew: isNew === 'true'
         });
 
         // Получаем товары и их общее количество
@@ -261,17 +356,32 @@ exports.getProductList = async (req, res) => {
 
 exports.searchProductsByName = async (req, res) => {
     try {
-        const { name = '', page = 1, pageSize = 10, source, showHidden = false } = req.query;
+        const { 
+            name = '', 
+            page = 1, 
+            pageSize = 40, // Изменили значение по умолчанию на 40
+            source, 
+            socketType,
+            lampCount,
+            shadeColor,
+            frameColor,
+            showHidden = false,
+            outOfStock = false,  // Новый параметр - товары под заказ
+            isNew = false        // Новый параметр - новинки
+        } = req.query;
         
-        const query = { 
-            name: new RegExp(name, 'i'), 
-            source: source ? { $regex: new RegExp(source, 'i') } : { $in: validSources } 
-        };
-        
-        // Добавляем фильтрацию по видимости
-        if (showHidden !== 'true') {
-            query.visible = { $ne: false };
-        }
+        // Используем функцию buildQuery для создания единообразного запроса
+        const query = buildQuery({
+            name,
+            source,
+            socketType,
+            lampCount,
+            shadeColor,
+            frameColor,
+            showHidden: showHidden === 'true',
+            outOfStock: outOfStock === 'true',
+            isNew: isNew === 'true'
+        });
         
         const [products, totalProducts] = await Promise.all([
             ProductModel.find(query).skip((page - 1) * pageSize).limit(+pageSize),
@@ -292,7 +402,19 @@ exports.searchProductsByName = async (req, res) => {
 // Новый контроллер для поиска похожих товаров
 exports.getSimilarProducts = async (req, res) => {
     try {
-        const { keywords, article, source, limit = 20, showHidden = false } = req.query;
+        const { 
+            keywords, 
+            article, 
+            source, 
+            socketType,
+            lampCount,
+            shadeColor,
+            frameColor,
+            limit = 40, // Изменили значение по умолчанию на 40
+            showHidden = false,
+            outOfStock = false,  // Новый параметр - товары под заказ
+            isNew = false        // Новый параметр - новинки
+        } = req.query;
         
         if (!keywords && !article) {
             return res.status(400).json({ 
@@ -300,31 +422,40 @@ exports.getSimilarProducts = async (req, res) => {
             });
         }
         
-        // Базовый запрос для получения товаров
-        const baseQuery = {
-            source: source ? { $regex: new RegExp(source, 'i') } : { $in: validSources }
-        };
+        // Используем функцию buildQuery для создания единообразного запроса
+        const baseQuery = buildQuery({
+            name: keywords,
+            source,
+            socketType,
+            lampCount,
+            shadeColor,
+            frameColor,
+            article,
+            showHidden: showHidden === 'true',
+            outOfStock: outOfStock === 'true',
+            isNew: isNew === 'true'
+        });
         
-        // Фильтрация по видимости
-        if (showHidden !== 'true') {
-            baseQuery.visible = { $ne: false };
-        }
-        
-        // Если есть ключевые слова, добавляем к запросу
+        // Если есть ключевые слова, дополнительно добавляем к запросу
         if (keywords) {
             const keywordsArray = keywords.split(',');
-            // Добавляем поиск по названию для каждого ключевого слова
-            baseQuery.$or = keywordsArray.map(keyword => ({ 
-                name: new RegExp(keyword.trim(), 'i') 
-            }));
-        }
-        
-        // Если есть артикул, добавляем его к запросу
-        if (article) {
+            // Расширяем существующий $or или создаем новый
+            const additionalOrConditions = [];
+            
+            keywordsArray.forEach(keyword => {
+                const trimmedKeyword = keyword.trim();
+                additionalOrConditions.push(
+                    { name: new RegExp(trimmedKeyword, 'i') },
+                    { socketType: new RegExp(trimmedKeyword, 'i') },
+                    { shadeColor: new RegExp(trimmedKeyword, 'i') },
+                    { frameColor: new RegExp(trimmedKeyword, 'i') }
+                );
+            });
+            
             if (baseQuery.$or) {
-                baseQuery.$or.push({ article: new RegExp(article, 'i') });
+                baseQuery.$or = [...baseQuery.$or, ...additionalOrConditions];
             } else {
-                baseQuery.$or = [{ article: new RegExp(article, 'i') }];
+                baseQuery.$or = additionalOrConditions;
             }
         }
         
@@ -385,6 +516,10 @@ exports.updateProduct = async (req, res) => {
         if (price !== undefined) updateData.price = parseFloat(price);
         if (stock !== undefined) updateData.stock = parseInt(stock);
         if (imageAddress) updateData.imageAddress = imageAddress;
+        
+        // Автоматически помечаем товар как новинку при обновлении
+        updateData.isNew = true;
+        updateData.updatedAt = new Date();
         
         // Обновление товара в базе данных
         const updatedProduct = await ProductModel.findByIdAndUpdate(
@@ -503,7 +638,9 @@ exports.createProduct = async (req, res) => {
         stock: stock !== undefined ? parseInt(stock) : 0,
         source: source || 'Unknown',
         imageAddress: imageUrls,
-        visible: true
+        visible: true,
+        isNew: true,           // Автоматически помечаем новый товар как новинку
+        updatedAt: new Date()  // Устанавливаем дату создания
       });
   
       res.status(201).json({
@@ -515,3 +652,49 @@ exports.createProduct = async (req, res) => {
       res.status(500).json({ message: error.message });
     }
   };
+
+// Контроллер для получения новинок
+exports.getNewProducts = async (req, res) => {
+    try {
+        const { 
+            page = 1, 
+            limit = 40,
+            source,
+            socketType,
+            lampCount,
+            shadeColor,
+            frameColor,
+            showHidden = false 
+        } = req.query;
+        
+        // Используем buildQuery с принудительным isNew = true
+        const query = buildQuery({
+            source,
+            socketType,
+            lampCount,
+            shadeColor,
+            frameColor,
+            showHidden: showHidden === 'true',
+            isNew: true  // Принудительно ищем только новинки
+        });
+        
+        // Сортируем по дате обновления (новые сначала)
+        const [products, totalProducts] = await Promise.all([
+            ProductModel.find(query)
+                .sort({ updatedAt: -1 })  // Сортировка по дате обновления
+                .skip((page - 1) * limit)
+                .limit(+limit),
+            ProductModel.countDocuments(query)
+        ]);
+        
+        res.json({
+            totalProducts,
+            totalPages: Math.ceil(totalProducts / limit),
+            currentPage: +page,
+            products,
+            message: 'Новинки загружены'
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};

@@ -1,13 +1,12 @@
 const mongoose = require('mongoose');
-const fs = require('fs');
-const path = require('path');
+const axios = require('axios');
 const xml2js = require('xml2js');
 const iconv = require('iconv-lite');
 const { ProductModel } = require('../app/products/productModel');
 
 // Подключение к MongoDB
 const connectToDatabase = async () => {
-  const mongoURI = 'mongodb+srv://Elecktro-mos:j13hvAQNBpEVEqdo@elecktro-mos.o6boe.mongodb.net/Elecktro-mos?retryWrites=true&w=majority&appName=Elecktro-mos';
+  const mongoURI = 'mongodb+srv://MoreElektriki:rIK9lXQI8wPnrqri@cluster0moreelecktirki.vacmh0p.mongodb.net/MoreElektriki?retryWrites=true&w=majority&appName=Cluster0MoreElecktirki';
   try {
     await mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
     console.log('Подключено к MongoDB');
@@ -30,23 +29,20 @@ const parseXML = async (xml) => {
   });
 };
 
-// Загрузка и обработка продуктов из локального XML файла Voltum
+// Загрузка и обработка продуктов из URL XML файла Voltum
 const uploadProductsByVoltum = async () => {
   await connectToDatabase();
   
-  // Формирование абсолютного пути к файлу (например, yml/voltum.yml)
-  const filePath = path.join(__dirname, 'yml', 'voltum.yml');
+  const url = 'https://mais-upload.maytoni.de/YML/voltum.yml';
   
   try {
-    const fileData = await fs.promises.readFile(filePath);
-    // Если XML в другой кодировке (например, windows-1251), измените 'utf-8' на нужную
-    const xmlData = iconv.decode(fileData, 'utf-8');
+    const response = await axios.get(url, { responseType: 'arraybuffer' });
+    // Декодируем в UTF-8 (если файл в другой кодировке, поменяйте)
+    const xmlData = iconv.decode(response.data, 'utf-8');
     const result = await parseXML(xmlData);
     
-    // Для отладки: вывод полной структуры XML (при необходимости закомментируйте)
     console.log("XML Structure:", JSON.stringify(result, null, 2));
     
-    // Извлечение офферов; если структура отличается – скорректируйте путь
     const offers = result?.yml_catalog?.shop?.[0]?.offers?.[0]?.offer;
     if (!offers || !Array.isArray(offers)) {
       console.error('Offers not found или неверный формат XML данных.');
@@ -54,7 +50,6 @@ const uploadProductsByVoltum = async () => {
     }
     
     for (const offer of offers) {
-      // Извлечение артикула: сначала vendorCode, иначе используем атрибут id
       let article = '';
       if (offer.vendorCode && offer.vendorCode[0]) {
         article = offer.vendorCode[0].trim();
@@ -62,14 +57,10 @@ const uploadProductsByVoltum = async () => {
         article = offer.$.id.trim();
       }
       
-      // Извлечение названия
       const name = offer.name && offer.name[0] ? offer.name[0].trim() : '';
-      
-      // Парсинг цены и количества
       const price = offer.price && offer.price[0] ? parseFloat(offer.price[0].trim()) : 0;
       const stock = offer.stock && offer.stock[0] ? parseInt(offer.stock[0].trim()) : 0;
       
-      // Извлечение изображений
       let images = [];
       if (offer.picture && Array.isArray(offer.picture)) {
         images = offer.picture.map(pic => pic.trim()).filter(url => url.length > 0);
@@ -84,10 +75,9 @@ const uploadProductsByVoltum = async () => {
         price,
         stock,
         imageAddress: images,
-        source: 'VoltumProduct'
+        source: 'Voltum'
       };
       
-      // Проверка обязательных полей
       if (!article || !name) {
         console.warn(`Пропуск продукта из-за отсутствия обязательных полей. article: "${article}", name: "${name}"`);
         continue;
