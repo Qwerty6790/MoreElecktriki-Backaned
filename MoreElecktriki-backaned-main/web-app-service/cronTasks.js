@@ -7,12 +7,12 @@ const { uploadProductsByMaytoni } = require('./uploads/maytoniUpload');
 const { uploadProductsByDenkirs } = require('./uploads/denkirsUpload');
 const { uploadProductsByElektroStandard } = require('./uploads/elektroStandartUpload');
 const { uploadProductsByStluce } = require('./uploads/stluceUpload');
-const { uploadProductsByVoltum } = require('./uploads/voltumUplodas');
+const { uploadProductsByVoltum } = require('./uploads/voltumUploda');
 const { uploadProductsByFavouriteLight } = require('./uploads/favouriteLightUpload');
 const { uploadProductsByLumion } = require('./uploads/lumionUpload');
-const { uploadProductsByOdeon } = require('./uploads/odeonUploads');
-const { uploadProductsBySonex } = require('./uploads/sonexUploads');
-const { uploadProductsByNovotechLight } = require('./uploads/NovotechLightUploads');
+const { uploadProductsByOdeon } = require('./uploads/odeonUpload');
+const { uploadProductsBySonex } = require('./uploads/sonexUpload');
+const { uploadProductsByNovotechLight } = require('./uploads/novotechLightUpload');
 
 function updateProductData(){
     uploadProductsByKinkLight();
