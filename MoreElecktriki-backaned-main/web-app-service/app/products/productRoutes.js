@@ -11,6 +11,7 @@ router.get('/products/search', productController.searchProductsByName);
 router.get('/products/similar', productController.getSimilarProducts);
 // Новый маршрут для получения новинок
 router.get('/products/new', productController.getNewProducts);
+
 // Маршруты с параметрами разместим после конкретных маршрутов
 router.get('/products/:supplier', productController.getProducts);
 router.get('/product/:supplier', productController.getProductByArticle);
