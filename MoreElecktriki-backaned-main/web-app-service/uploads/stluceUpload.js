@@ -37,6 +37,63 @@ const getParamValue = (params, paramName) => {
     return param ? (param._ || '').toString().trim() : '';
 };
 
+// --- Утилиты парсинга размеров
+const parseValueWithUnit = (raw) => {
+    if (raw === undefined || raw === null || raw === '') return null;
+    const s = String(raw).trim();
+    const numMatch = s.match(/[-+]?[0-9]*[.,]?[0-9]+/g);
+    if (!numMatch) return null;
+    let num = parseFloat(numMatch[0].replace(',', '.'));
+    const lower = s.toLowerCase();
+    if (lower.includes('см') || lower.includes('cm')) num = num * 10;
+    if ((lower.includes('м') || lower.includes('m')) && !lower.includes('мм') && !lower.includes('mm') && !lower.includes('см')) num = num * 1000;
+    return num;
+};
+
+const parseDimensionsString = (raw) => {
+    if (!raw) return {};
+    const s = String(raw).replace(/\s+/g, ' ').trim();
+    const matches = s.match(/[-+]?[0-9]*[.,]?[0-9]+/g) || [];
+    const nums = matches.map(n => parseFloat(n.replace(',', '.'))).map(n => n);
+    if (nums.length === 0) return {};
+    if (nums.length === 1) return { length: nums[0] };
+    if (nums.length === 2) return { length: nums[0], width: nums[1] };
+    if (nums.length >= 3) return { length: nums[0], width: nums[1], height: nums[2] };
+    return {};
+};
+
+const getFieldValue = (obj, keys) => {
+    for (const actualKey of Object.keys(obj)) {
+        for (const k of keys) {
+            if (actualKey === k || actualKey.toLowerCase() === k.toLowerCase()) {
+                const raw = obj[actualKey];
+                return { value: Array.isArray(raw) ? raw[0] : raw, header: actualKey };
+            }
+        }
+    }
+    return null;
+};
+
+const getParamFromParams = (params, synonyms) => {
+    if (!params || !Array.isArray(params)) return null;
+    for (const p of params) {
+        const name = (p.$ && p.$.name) ? String(p.$.name).toLowerCase() : '';
+        for (const syn of synonyms) {
+            if (name.includes(syn)) return p._ || '';
+        }
+    }
+    return null;
+};
+
+const parseNumericFromRaw = (raw, header) => {
+    if (raw === undefined || raw === null || raw === '') return null;
+    if (header && /см|cm/i.test(header)) {
+        const n = parseFloat(String(raw).replace(',', '.'));
+        if (Number.isFinite(n)) return n * 10;
+    }
+    return parseValueWithUnit(raw);
+};
+
 // Загрузка и обработка продуктов из XML
 const uploadProductsByStluce = async () => {
     await connectToDatabase();
@@ -87,7 +144,23 @@ const uploadProductsByStluce = async () => {
                 const frameColor = getParamValue(params, 'Цвет каркаса');
                 const shadeColor = getParamValue(params, 'Цвет плафона');
 
-                const productData = {
+                // Попробуем извлечь размеры из params (разные вариации ключей)
+                const diameterParam = getParamFromParams(params, ['диаметр', 'ø', 'диам']);
+                const heightParam = getParamFromParams(params, ['высота', 'высота светильника', 'height']);
+                const depthParam = getParamFromParams(params, ['глубина', 'глубина светильника', 'depth']);
+                const widthParam = getParamFromParams(params, ['ширина', 'ширина светильника', 'width']);
+                const lengthParam = getParamFromParams(params, ['длина', 'длина светильника', 'length']);
+                const dimsParam = getParamFromParams(params, ['габариты', 'размеры', 'размер', 'size']);
+
+                const dims = {};
+                if (diameterParam) dims.diameter = parseValueWithUnit(diameterParam);
+                if (heightParam) dims.height = parseValueWithUnit(heightParam);
+                if (depthParam) dims.depth = parseValueWithUnit(depthParam);
+                if (widthParam) dims.width = parseValueWithUnit(widthParam);
+                if (lengthParam) dims.length = parseValueWithUnit(lengthParam);
+                if (Object.keys(dims).length === 0 && dimsParam) Object.assign(dims, parseDimensionsString(dimsParam));
+
+                const productData = Object.assign({
                     article: lightData.model || '',
                     name: lightData.name || '',
                     price: parseFloat(lightData.price) || 0,
@@ -100,7 +173,7 @@ const uploadProductsByStluce = async () => {
                     lampCount: parseInt(lampCount) || 1,
                     shadeColor: shadeColor,
                     frameColor: frameColor,
-                };
+                }, dims);
 
                 // Проверяем обязательные поля
                 if (!productData.article || !productData.name) {

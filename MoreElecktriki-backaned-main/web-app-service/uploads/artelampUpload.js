@@ -31,6 +31,14 @@ const columnMapping = {
     
     // Добавляем лампы
     lampCount: ['Количество патронов', 'Патроны', 'Кол-во ламп']
+    ,
+    // Размеры
+    diameter: ['Диаметр', 'Диаметр (мм)', 'Ø', 'Диам.'],
+    height: ['Высота', 'Высота (мм)', 'H', 'Высота светильника см'],
+    depth: ['Глубина', 'Глубина (мм)', 'Глуб.', 'Глубина светильника см'],
+    width: ['Ширина', 'Ширина (мм)', 'W', 'Ширина светильника см'],
+    length: ['Длина', 'Длина (мм)', 'L', 'Длина светильника см'],
+    dimensions: ['Габариты', 'Размеры', 'Размер', 'Размер (мм)']
     // socketType убран - оставляем пустым для Artelamp
 };
 
@@ -53,11 +61,78 @@ const getValue = (row, field) => {
     return null;
 };
 
+// --- Утилита: получить значение и совпавший заголовок колонки
+const getValueWithHeader = (row, field) => {
+    const synonyms = columnMapping[field];
+    if (!synonyms) return null;
+
+    for (const key of synonyms) {
+        if (row[key] !== undefined && row[key] !== null && row[key] !== '') {
+            return { value: row[key], header: key };
+        }
+    }
+    return null;
+};
+
+// --- Утилита: нормализовать сырое значение с учётом заголовка (например, если в заголовке указано "см")
+const normalizeRawByHeader = (raw, header) => {
+    if (raw === undefined || raw === null || raw === '') return null;
+    // Если это уже число — оставим
+    const isNumber = typeof raw === 'number' || /^[-+]?[0-9]*[.,]?[0-9]+$/.test(String(raw).trim());
+    if (isNumber && header && /см|cm/i.test(header)) {
+        // Число в столбце указанном в сантиметрах — переведём в мм
+        const n = parseFloat(String(raw).replace(',', '.'));
+        if (Number.isFinite(n)) return n * 10;
+    }
+    return raw;
+};
+
 // --- Утилита: обработка типа лампы
 const processSocketType = (socketType) => {
     if (!socketType) return '';
     
     return String(socketType).trim();
+};
+
+// --- Утилита: парсинг числового значения с единицами (возвращает мм)
+const parseValueWithUnit = (raw) => {
+    if (raw === undefined || raw === null || raw === '') return null;
+    const s = String(raw).trim();
+    const numMatch = s.match(/[-+]?[0-9]*[.,]?[0-9]+/g);
+    if (!numMatch) return null;
+    let num = parseFloat(numMatch[0].replace(',', '.'));
+    const lower = s.toLowerCase();
+    if (lower.includes('см') || lower.includes('cm')) num = num * 10;
+    if ((lower.includes('м') || lower.includes('m')) && !lower.includes('мм') && !lower.includes('mm') && !lower.includes('см')) num = num * 1000;
+    return num;
+};
+
+// --- Утилита: парсинг строки габаритов в отдельные поля (мм)
+const parseDimensions = (raw) => {
+    if (!raw) return {};
+    const s = String(raw).replace(/\s+/g, ' ').trim();
+
+    // Если явно указан диаметр
+    if (/Ø|диаметр|диам\./i.test(s)) {
+        const d = parseValueWithUnit(s);
+        return d ? { diameter: d } : {};
+    }
+
+    // Соберём все числа из строки
+    const matches = s.match(/[-+]?[0-9]*[.,]?[0-9]+/g) || [];
+    const nums = matches.map(n => parseFloat(n.replace(',', '.'))).map(n => {
+        // попробуем определить единицу по контексту
+        // если в строке есть см — перевести в мм
+        if (/см|cm/i.test(s)) return n * 10;
+        if (/мм|mm/i.test(s)) return n;
+        return n; // пусть будет в тех же единицах — обычно мм
+    });
+
+    if (nums.length === 0) return {};
+    if (nums.length === 1) return { length: nums[0] };
+    if (nums.length === 2) return { length: nums[0], width: nums[1] };
+    if (nums.length >= 3) return { length: nums[0], width: nums[1], height: nums[2] };
+    return {};
 };
 
 // --- Получаем данные для ламп (только количество, тип цоколя оставляем пустым)
@@ -125,6 +200,41 @@ const uploadProductsByArtelamp = async () => {
                 shadeColor: getValue(row, 'shadeColor') || '',
                 frameColor: getValue(row, 'frameColor') || ''
             };
+
+            // --- Парсинг размеров и добавление в productData (мм)
+            const dims = {};
+            const rawDiameterObj = getValueWithHeader(row, 'diameter');
+            const rawHeightObj = getValueWithHeader(row, 'height');
+            const rawDepthObj = getValueWithHeader(row, 'depth');
+            const rawWidthObj = getValueWithHeader(row, 'width');
+            const rawLengthObj = getValueWithHeader(row, 'length');
+            const rawDimensionsObj = getValueWithHeader(row, 'dimensions');
+
+            const rawDiameter = rawDiameterObj ? normalizeRawByHeader(rawDiameterObj.value, rawDiameterObj.header) : null;
+            const rawHeight = rawHeightObj ? normalizeRawByHeader(rawHeightObj.value, rawHeightObj.header) : null;
+            const rawDepth = rawDepthObj ? normalizeRawByHeader(rawDepthObj.value, rawDepthObj.header) : null;
+            const rawWidth = rawWidthObj ? normalizeRawByHeader(rawWidthObj.value, rawWidthObj.header) : null;
+            const rawLength = rawLengthObj ? normalizeRawByHeader(rawLengthObj.value, rawLengthObj.header) : null;
+            const rawDimensions = rawDimensionsObj ? normalizeRawByHeader(rawDimensionsObj.value, rawDimensionsObj.header) : null;
+
+            if (rawDiameter) dims.diameter = parseValueWithUnit(rawDiameter);
+            if (rawHeight) dims.height = parseValueWithUnit(rawHeight);
+            if (rawDepth) dims.depth = parseValueWithUnit(rawDepth);
+            if (rawWidth) dims.width = parseValueWithUnit(rawWidth);
+            if (rawLength) dims.length = parseValueWithUnit(rawLength);
+
+            // Если отдельных колонок нет — попробуем распарсить общую колонку размеров
+            if (Object.keys(dims).length === 0 && rawDimensions) {
+                const parsed = parseDimensions(rawDimensions);
+                Object.assign(dims, parsed);
+            }
+
+            // Оставляем только числовые значения
+            for (const k of Object.keys(dims)) {
+                if (dims[k] === null || Number.isNaN(dims[k])) delete dims[k];
+            }
+
+            Object.assign(productData, dims);
 
             console.log('Обработанные данные продукта:', {
                 article: productData.article,

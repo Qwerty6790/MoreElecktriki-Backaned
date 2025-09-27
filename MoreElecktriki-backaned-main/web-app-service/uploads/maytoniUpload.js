@@ -31,6 +31,42 @@ const parseNumber = (value, defaultValue = 0) => {
     return isNaN(number) ? defaultValue : number;
 };
 
+// --- Утилиты парсинга размеров
+const parseValueWithUnit = (raw) => {
+    if (raw === undefined || raw === null || raw === '') return null;
+    const s = String(raw).trim();
+    const numMatch = s.match(/[-+]?[0-9]*[.,]?[0-9]+/g);
+    if (!numMatch) return null;
+    let num = parseFloat(numMatch[0].replace(',', '.'));
+    const lower = s.toLowerCase();
+    if (lower.includes('см') || lower.includes('cm')) num = num * 10;
+    if ((lower.includes('м') || lower.includes('m')) && !lower.includes('мм') && !lower.includes('mm') && !lower.includes('см')) num = num * 1000;
+    return num;
+};
+
+const parseDimensionsString = (raw) => {
+    if (!raw) return {};
+    const s = String(raw).replace(/\s+/g, ' ').trim();
+    const matches = s.match(/[-+]?[0-9]*[.,]?[0-9]+/g) || [];
+    const nums = matches.map(n => parseFloat(n.replace(',', '.'))).map(n => n);
+    if (nums.length === 0) return {};
+    if (nums.length === 1) return { length: nums[0] };
+    if (nums.length === 2) return { length: nums[0], width: nums[1] };
+    if (nums.length >= 3) return { length: nums[0], width: nums[1], height: nums[2] };
+    return {};
+};
+
+const getParamFromParams = (params, synonyms) => {
+    if (!params || !Array.isArray(params)) return null;
+    for (const p of params) {
+        const name = (p.$ && p.$.name) ? String(p.$.name).toLowerCase() : '';
+        for (const syn of synonyms) {
+            if (name.includes(syn)) return p._ || '';
+        }
+    }
+    return null;
+};
+
 // Загрузка и обработка товаров Maytoni
 const uploadProductsByMaytoni = async () => {
     try {
@@ -62,12 +98,28 @@ const uploadProductsByMaytoni = async () => {
             const lampParam = lightData.param?.find(param => param.$?.name === 'Лампы в комплекте');
             const lampCount = parseNumber(lampParam?._, 1);
 
+            // Попробуем получить размеры из param
+            const diameterParam = getParamFromParams(lightData.param, ['диаметр', 'ø', 'диам']);
+            const heightParam = getParamFromParams(lightData.param, ['высота', 'высота светильника']);
+            const depthParam = getParamFromParams(lightData.param, ['глубина', 'глубина светильника']);
+            const widthParam = getParamFromParams(lightData.param, ['ширина', 'ширина светильника']);
+            const lengthParam = getParamFromParams(lightData.param, ['длина', 'длина светильника']);
+            const dimsParam = getParamFromParams(lightData.param, ['габариты', 'размеры', 'размер']);
+
+            const dims = {};
+            if (diameterParam) dims.diameter = parseValueWithUnit(diameterParam);
+            if (heightParam) dims.height = parseValueWithUnit(heightParam);
+            if (depthParam) dims.depth = parseValueWithUnit(depthParam);
+            if (widthParam) dims.width = parseValueWithUnit(widthParam);
+            if (lengthParam) dims.length = parseValueWithUnit(lengthParam);
+            if (Object.keys(dims).length === 0 && dimsParam) Object.assign(dims, parseDimensionsString(dimsParam));
+
             // Изображения
             const imageAddress = Array.isArray(lightData.picture)
                 ? lightData.picture.map(img => img.trim())
                 : [];
 
-            const productData = {
+            const productData = Object.assign({
                 article,
                 name,
                 price,
@@ -78,7 +130,7 @@ const uploadProductsByMaytoni = async () => {
                 socketType,
                 lampCount,
                 imageAddress
-            };
+            }, dims);
 
             try {
                 await ProductModel.findOneAndUpdate(

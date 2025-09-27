@@ -18,6 +18,41 @@ const connectToDatabase = async () => {
     }
 };
 
+// --- Утилиты для парсинга размеров
+const parseValueWithUnit = (raw) => {
+    if (raw === undefined || raw === null || raw === '') return null;
+    const s = String(raw).trim();
+    const numMatch = s.match(/[-+]?[0-9]*[.,]?[0-9]+/g);
+    if (!numMatch) return null;
+    let num = parseFloat(numMatch[0].replace(',', '.'));
+    const lower = s.toLowerCase();
+    if (lower.includes('см') || lower.includes('cm')) num = num * 10;
+    if ((lower.includes('м') || lower.includes('m')) && !lower.includes('мм') && !lower.includes('mm') && !lower.includes('см')) num = num * 1000;
+    return num;
+};
+
+const getParamValue = (paramObj, synonyms) => {
+    for (const key of Object.keys(paramObj)) {
+        const lowerKey = key.toLowerCase();
+        for (const syn of synonyms) {
+            if (lowerKey.includes(syn)) return { value: paramObj[key], header: key };
+        }
+    }
+    return null;
+};
+
+const parseDimensionsString = (raw) => {
+    if (!raw) return {};
+    const s = String(raw).replace(/\s+/g, ' ').trim();
+    const matches = s.match(/[-+]?[0-9]*[.,]?[0-9]+/g) || [];
+    const nums = matches.map(n => parseFloat(n.replace(',', '.'))).map(n => n);
+    if (nums.length === 0) return {};
+    if (nums.length === 1) return { length: nums[0] };
+    if (nums.length === 2) return { length: nums[0], width: nums[1] };
+    if (nums.length >= 3) return { length: nums[0], width: nums[1], height: nums[2] };
+    return {};
+};
+
 // Функция для парсинга одного offer
 const parseOffer = (offer) => {
     const price = parseFloat(offer.price) || 0;
@@ -41,7 +76,7 @@ const parseOffer = (offer) => {
     if (offer.param) {
         const paramsArray = Array.isArray(offer.param) ? offer.param : [offer.param];
         paramsArray.forEach(p => {
-            const key = p.$?.name?.toLowerCase() || '';
+            const key = p.$?.name || '';
             const value = p._ || '';
             param[key] = value;
         });
@@ -53,7 +88,25 @@ const parseOffer = (offer) => {
     const shadeColor = param['цвет плафона'] || '';
     const frameColor = param['цвет арматуры'] || '';
 
-    return {
+    // --- Попробуем получить размеры из param (разные вариации названий)
+    const diameterParam = getParamValue(param, ['диаметр', 'ø', 'диам']);
+    const heightParam = getParamValue(param, ['высота', 'высота светильника']);
+    const depthParam = getParamValue(param, ['глубина', 'глубина светильника']);
+    const widthParam = getParamValue(param, ['ширина', 'ширина светильника']);
+    const lengthParam = getParamValue(param, ['длина', 'длина светильника']);
+    const dimsParam = getParamValue(param, ['габариты', 'размеры', 'размер']);
+
+    const dims = {};
+    if (diameterParam) dims.diameter = parseValueWithUnit(diameterParam.value);
+    if (heightParam) dims.height = parseValueWithUnit(heightParam.value);
+    if (depthParam) dims.depth = parseValueWithUnit(depthParam.value);
+    if (widthParam) dims.width = parseValueWithUnit(widthParam.value);
+    if (lengthParam) dims.length = parseValueWithUnit(lengthParam.value);
+    if (Object.keys(dims).length === 0 && dimsParam) {
+        Object.assign(dims, parseDimensionsString(dimsParam.value));
+    }
+
+    return Object.assign({
         article,
         name,
         price,
@@ -64,7 +117,7 @@ const parseOffer = (offer) => {
         lampCount,
         shadeColor,
         frameColor,
-    };
+    }, dims);
 };
 
 // Функция загрузки и сохранения продуктов

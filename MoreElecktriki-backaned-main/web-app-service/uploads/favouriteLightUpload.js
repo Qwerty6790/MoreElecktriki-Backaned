@@ -15,6 +15,52 @@ const connectToDatabase = async () => {
     }
 };
 
+// --- Утилиты парсинга размеров
+const parseValueWithUnit = (raw) => {
+    if (raw === undefined || raw === null || raw === '') return null;
+    const s = String(raw).trim();
+    const numMatch = s.match(/[-+]?[0-9]*[.,]?[0-9]+/g);
+    if (!numMatch) return null;
+    let num = parseFloat(numMatch[0].replace(',', '.'));
+    const lower = s.toLowerCase();
+    if (lower.includes('см') || lower.includes('cm')) num = num * 10;
+    if ((lower.includes('м') || lower.includes('m')) && !lower.includes('мм') && !lower.includes('mm') && !lower.includes('см')) num = num * 1000;
+    return num;
+};
+
+const getFieldValue = (obj, keys) => {
+    for (const k of keys) {
+        if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') {
+            const raw = Array.isArray(obj[k]) ? obj[k][0] : obj[k];
+            return { value: raw, header: k };
+        }
+    }
+    return null;
+};
+
+const parseDimensionsString = (raw) => {
+    if (!raw) return {};
+    const s = String(raw).replace(/\s+/g, ' ').trim();
+    // попробуем собрать числа
+    const matches = s.match(/[-+]?[0-9]*[.,]?[0-9]+/g) || [];
+    const nums = matches.map(n => parseFloat(n.replace(',', '.'))).map(n => n);
+    if (nums.length === 0) return {};
+    if (nums.length === 1) return { length: nums[0] };
+    if (nums.length === 2) return { length: nums[0], width: nums[1] };
+    if (nums.length >= 3) return { length: nums[0], width: nums[1], height: nums[2] };
+    return {};
+};
+
+const parseNumericFromRaw = (raw, header) => {
+    if (raw === undefined || raw === null || raw === '') return null;
+    // если заголовок содержит 'см' — вероятно значения в см
+    if (header && /см|cm/i.test(header)) {
+        const n = parseFloat(String(raw).replace(',', '.'));
+        if (Number.isFinite(n)) return n * 10;
+    }
+    return parseValueWithUnit(raw);
+};
+
 // Основной парсинг и обновление товаров
 const uploadProductsByFavouriteLight = async () => {
     const productUrl = "https://ftp.favourite-light.com/ForClients/export/import.xml";
@@ -76,7 +122,21 @@ const uploadProductsByFavouriteLight = async () => {
                 ? lightData.ЦветОтделка[0]
                 : '';
 
-            const productData = {
+            // Попробуем получить размеры: столбцы могут называться по-разному
+            const heightField = getFieldValue(lightData, ['Высота', 'Высота светильника см']);
+            const lengthField = getFieldValue(lightData, ['Длина', 'Длина светильника см']);
+            const widthField = getFieldValue(lightData, ['Ширина', 'Ширина светильника см']);
+            const diameterField = getFieldValue(lightData, ['Диаметр', 'Диаметр светильника см']);
+            const dimsField = getFieldValue(lightData, ['Габариты', 'Размеры', 'Размер']);
+
+            const dims = {};
+            if (heightField) dims.height = parseNumericFromRaw(heightField.value, heightField.header);
+            if (lengthField) dims.length = parseNumericFromRaw(lengthField.value, lengthField.header);
+            if (widthField) dims.width = parseNumericFromRaw(widthField.value, widthField.header);
+            if (diameterField) dims.diameter = parseNumericFromRaw(diameterField.value, diameterField.header);
+            if (Object.keys(dims).length === 0 && dimsField) Object.assign(dims, parseDimensionsString(dimsField.value));
+
+            const productData = Object.assign({
                 article,
                 name: lightData.ПолноеНаименование[0] || article,
                 price,
@@ -87,7 +147,7 @@ const uploadProductsByFavouriteLight = async () => {
                 lampCount,
                 shadeColor,
                 frameColor
-            };
+            }, dims);
 
             return ProductModel.findOneAndUpdate(
                 { article: productData.article },

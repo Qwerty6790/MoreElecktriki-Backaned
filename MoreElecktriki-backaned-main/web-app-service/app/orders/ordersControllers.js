@@ -5,8 +5,8 @@ const YooKassa  = require('yookassa'); // Импортируем библиот�
 
 // Настройки для ЮKassa
 const yooKassa = new YooKassa({
-    shopId: '', // Укажите ваш shopId
-    secretKey: '' // Укажите ваш secretKey
+    shopId: '1174724', // Укажите ваш shopId
+    secretKey: 'test_0Lw0kY7x9OTpaXm8DERtJ6enu2dosrXWUTCMV8jKEbU' // Укажите ваш secretKey
 });
 
 // Функция для создания заказа и начала оплаты

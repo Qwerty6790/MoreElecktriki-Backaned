@@ -6,8 +6,8 @@ const transporter = nodemailer.createTransport({
     port: 587,
     secure: false, // true для 465, false для других портов
     auth: {
-        user: '',
-        pass: '' // Замените на ваш App Password
+        user: 'moreelektriki@gmail.com',
+        pass: 'lama mevn erdg jgac' // Замените на ваш App Password
     },
     tls: {
         rejectUnauthorized: false
@@ -21,7 +21,7 @@ const sendEmail = async (to, subject, text) => {
         console.log('Тема:', subject);
         
         const mailOptions = {
-            from: '',
+            from: 'moreelektriki@gmail.com',
             to: to,
             subject: subject,
             text: text

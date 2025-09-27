@@ -25,6 +25,12 @@ const productSchema = new mongoose.Schema({
     lampCount: { type: Number, default: 1 },       // Количество ламп
     shadeColor: { type: String, default: '' },     // Цвет плафона
     frameColor: { type: String, default: '' },     // Цвет арматуры
+    // Размеры
+    diameter: { type: Number, default: 0 },        // Диаметр (мм)
+    height: { type: Number, default: 0 },          // Высота (мм)
+    depth: { type: Number, default: 0 },           // Глубина (мм)
+    width: { type: Number, default: 0 },           // Ширина (мм)
+    length: { type: Number, default: 0 },          // Длина (мм)
 });
 
 // Создание модели для коллекции товаров

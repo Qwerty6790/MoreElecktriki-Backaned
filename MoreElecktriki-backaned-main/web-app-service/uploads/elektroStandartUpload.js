@@ -18,6 +18,42 @@ const connectToDatabase = async () => {
     }
 };
 
+// --- Утилиты парсинга размеров
+const parseValueWithUnit = (raw) => {
+    if (raw === undefined || raw === null || raw === '') return null;
+    const s = String(raw).trim();
+    const numMatch = s.match(/[-+]?[0-9]*[.,]?[0-9]+/g);
+    if (!numMatch) return null;
+    let num = parseFloat(numMatch[0].replace(',', '.'));
+    const lower = s.toLowerCase();
+    if (lower.includes('см') || lower.includes('cm')) num = num * 10;
+    if ((lower.includes('м') || lower.includes('m')) && !lower.includes('мм') && !lower.includes('mm') && !lower.includes('см')) num = num * 1000;
+    return num;
+};
+
+const getParamValue = (paramObj, synonyms) => {
+    for (const key of Object.keys(paramObj)) {
+        const lowerKey = key.toLowerCase();
+        for (const syn of synonyms) {
+            if (lowerKey.includes(syn)) return { value: paramObj[key], header: key };
+        }
+    }
+    return null;
+};
+
+const parseDimensionsString = (raw) => {
+    if (!raw) return {};
+    const s = String(raw).replace(/\s+/g, ' ').trim();
+    // если есть указание единиц в строке, parseValueWithUnit внутри вызова будет учитывать
+    const matches = s.match(/[-+]?[0-9]*[.,]?[0-9]+/g) || [];
+    const nums = matches.map(n => parseFloat(n.replace(',', '.'))).map(n => n);
+    if (nums.length === 0) return {};
+    if (nums.length === 1) return { length: nums[0] };
+    if (nums.length === 2) return { length: nums[0], width: nums[1] };
+    if (nums.length >= 3) return { length: nums[0], width: nums[1], height: nums[2] };
+    return {};
+};
+
 // Функция загрузки и парсинга товаров ElektroStandard
 const uploadProductsByElektroStandard = async () => {
     const url = 'https://partners.elektrostandard.ru/prices/prices-elektrostandard-rur.yml';
@@ -56,7 +92,25 @@ const uploadProductsByElektroStandard = async () => {
                     });
                 }
 
-                const productData = {
+                // Попробуем разобрать размеры из params
+                const diameterParam = getParamValue(params, ['диаметр', 'ø', 'диам']);
+                const heightParam = getParamValue(params, ['высота', 'высота светильника']);
+                const depthParam = getParamValue(params, ['глубина', 'глубина светильника']);
+                const widthParam = getParamValue(params, ['ширина', 'ширина светильника']);
+                const lengthParam = getParamValue(params, ['длина', 'длина светильника']);
+                const dimsParam = getParamValue(params, ['габариты', 'размеры', 'размер']);
+
+                const dims = {};
+                if (diameterParam) dims.diameter = parseValueWithUnit(diameterParam.value);
+                if (heightParam) dims.height = parseValueWithUnit(heightParam.value);
+                if (depthParam) dims.depth = parseValueWithUnit(depthParam.value);
+                if (widthParam) dims.width = parseValueWithUnit(widthParam.value);
+                if (lengthParam) dims.length = parseValueWithUnit(lengthParam.value);
+                if (Object.keys(dims).length === 0 && dimsParam) {
+                    Object.assign(dims, parseDimensionsString(dimsParam.value));
+                }
+
+                const productData = Object.assign({
                     article: offer.vendorCode,
                     name: offer.name || '',
                     price: price,
@@ -67,7 +121,7 @@ const uploadProductsByElektroStandard = async () => {
                     lampCount: parseInt(params['количество ламп']) || 1,
                     shadeColor: params['цвет плафона'] || '',
                     frameColor: params['цвет арматуры'] || '',
-                };
+                }, dims);
 
                 return ProductModel.findOneAndUpdate(
                     { article: productData.article },
