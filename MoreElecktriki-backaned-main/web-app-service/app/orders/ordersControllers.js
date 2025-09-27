@@ -91,7 +91,7 @@ ${payment.confirmation.confirmation_url}
 • Начать обработку заказа
 
 ---
-Elektromos - Система управления заказами`
+Moreelektriki - Система управления заказами`
             );
             console.log('✅ Email администратору отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -104,7 +104,7 @@ Elektromos - Система управления заказами`
             try {
                 const clientEmailResult = await sendEmail(
                     user.email,
-                    'Заказ создан - перейдите к оплате - Elektromos',
+                    'Заказ создан - перейдите к оплате - Moreelektriki',
                     `Здравствуйте, ${user.username}!
 
 Ваш пришел заказ!
@@ -122,9 +122,9 @@ ${payment.confirmation.confirmation_url}
 
 С уважением,
 Команда MoreElektriki
-Телефон: +7 (903) 797-06-99
-Email: infoelektromosru@gmail.com`
-                );
+Телефон: +7 (926) 552-21-73
+Email: moreelektriki@gmail.com`
+                )
                 console.log('✅ Email клиенту отправлен:', clientEmailResult);
             } catch (emailError) {
                 console.error('❌ Ошибка отправки email клиенту:', emailError);
@@ -201,7 +201,7 @@ ${order.products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} ру
 • Связаться с клиентом для уточнения доставки
 
 ---
-Elektromos - Система управления заказами`
+Moreelektriki - Система управления заказами`
             );
             console.log('✅ Email администратору об оплате отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -213,7 +213,7 @@ Elektromos - Система управления заказами`
         try {
             const clientEmailResult = await sendEmail(
                 user.email,
-                'Ваш заказ оплачен - Elektromos',
+                'Ваш заказ оплачен - Moreelektriki',
                 `Здравствуйте, ${user.username}!
 
 Ваш заказ успешно оплачен!
@@ -229,9 +229,9 @@ ${order.products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб
 Мы начнем обработку вашего заказа в ближайшее время.
 
 С уважением,
-Команда Elektromos
-Телефон: +7 (903) 797-06-99
-Email: infoelektromosru@gmail.com`
+Команда MoreElektriki
+Телефон: +7 (926) 552-21-73
+Email: moreelektriki@gmail.com`
             );
             console.log('✅ Email клиенту об оплате отправлен:', clientEmailResult);
         } catch (emailError) {
@@ -280,7 +280,7 @@ exports.addOrderWithoutPayment = async (req, res) => {
         console.log('📧 Отправляем email уведомление администратору...');
         try {
             const adminEmailResult = await sendEmail(
-                'infoelektromosru@gmail.com',
+                'moreelektriki@gmail.com',
                 '🛒 Новый заказ #' + order._id,
                 `ЗАКАЗ СОЗДАН
 
@@ -307,7 +307,7 @@ ${products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).
 • Подтвердить заказ
 
 ---
-Elektromos - Система управления заказами`
+Moreelektriki - Система управления заказами`
             );
             console.log('✅ Email администратору отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -320,7 +320,7 @@ Elektromos - Система управления заказами`
             try {
                 const clientEmailResult = await sendEmail(
                     user.email,
-                    'Ваш заказ успешно создан - Elektromos',
+                    'Ваш заказ успешно создан - Moreelektriki',
                     `Здравствуйте, ${user.username}!
 
 Ваш заказ успешно создан!
@@ -336,9 +336,9 @@ ${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).jo
 Мы свяжемся с вами в ближайшее время для подтверждения заказа.
 
 С уважением,
-Команда Elektromos
-Телефон: +7 (903) 797-06-99
-Email: infoelektromosru@gmail.com`
+Команда MoreElektriki
+Телефон: +7 (926) 552-21-73
+Email: moreelektriki@gmail.com`
                 );
                 console.log('✅ Email клиенту отправлен:', clientEmailResult);
             } catch (emailError) {
@@ -411,7 +411,7 @@ exports.updateProductInOrderStatus = async (req, res) => {
 
         // Отправка уведомления по электронной почте
         const user = await User.findById(order.userId);
-        await axios.post('https://elektromos-backand.vercel.app', {
+        await axios.post('https://more-elecktriki-backaned.vercel.app', {
             from: 'your-gmail-account@gmail.com',
             to: user.email,
             subject: 'Статус товара в заказе изменён',
@@ -422,7 +422,7 @@ exports.updateProductInOrderStatus = async (req, res) => {
             Если у вас есть вопросы, пожалуйста, свяжитесь с нашей службой поддержки - 
 
             С уважением,
-            Команда Elektromos.`
+            Команда Moreelektriki.`
         });
 
         res.status(200).json({ message: 'Состояние товара успешно изменено', product });
@@ -449,7 +449,7 @@ exports.updateOrderStatus = async (req, res) => {
 
         // Отправка уведомления по электронной почте
         const user = await User.findById(order.userId);
-        await axios.post('https://elektromos-backand.vercel.app', {
+        await axios.post('https://more-elecktriki-backaned.vercel.app', {
             from: 'your-gmail-account@gmail.com',
             to: user.email,
             subject: 'Статус заказа изменён',
@@ -460,7 +460,7 @@ exports.updateOrderStatus = async (req, res) => {
             Если у вас есть вопросы, пожалуйста, свяжитесь с нашей службой поддержки - 
 
             С уважением,
-            Команда Elektromos.`
+            Команда Moreelektriki.`
         });
 
         res.status(200).json({ message: 'Состояние заказа успешно изменено' });
@@ -556,7 +556,7 @@ exports.addGuestOrderWithPayment = async (req, res) => {
             },
             confirmation: {
                 type: 'redirect',
-                return_url: `https://elektromos.ru/payment-success/${order._id}`
+                return_url: `https://moreelectriki.ru/payment-success/${order._id}`
             },
             capture: true,
             description: `Оплата заказа #${order._id} (Гость: ${guestInfo.name})`,
@@ -570,7 +570,7 @@ exports.addGuestOrderWithPayment = async (req, res) => {
         console.log('📧 Отправляем email уведомление администратору...');
         try {
             const adminEmailResult = await sendEmail(
-                'infoelektromosru@gmail.com',
+                'moreelektriki@gmail.com',
                 '💳 Новый гостевой заказ с оплатой #' + order._id,
                 `ЗАКАЗ СОЗДАН
 
@@ -602,7 +602,7 @@ ${payment.confirmation.confirmation_url}
 • Начать обработку заказа
 
 ---
-Elektromos - Система управления заказами`
+Moreelektriki - Система управления заказами`
             );
             console.log('✅ Email администратору отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -614,7 +614,7 @@ Elektromos - Система управления заказами`
         try {
             const clientEmailResult = await sendEmail(
                 guestInfo.email,
-                'Ваш заказ создан - перейдите к оплате - Elektromos',
+                'Ваш заказ создан - перейдите к оплате - Moreelektriki',
                 `Здравствуйте, ${guestInfo.name}!
 
 Ваш заказ успешно создан!
@@ -631,9 +631,9 @@ ${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).jo
 ${payment.confirmation.confirmation_url}
 
 С уважением,
-Команда Elektromos
-Телефон: +7 (903) 797-06-99
-Email: infoelektromosru@gmail.com`
+Команда MoreElektriki
+Телефон: +7 (926) 552-21-73
+Email: moreelektriki@gmail.com`
             );
             console.log('✅ Email клиенту отправлен:', clientEmailResult);
         } catch (emailError) {
@@ -703,7 +703,7 @@ exports.addGuestOrderWithoutPayment = async (req, res) => {
         console.log('📧 Отправляем email уведомление администратору...');
         try {
             const adminEmailResult = await sendEmail(
-                'infoelektromosru@gmail.com',
+                'moreelektriki@gmail.com',
                 '🛒 Новый заказ #' + order._id,
                 `ЗАКАЗ СОЗДАН
 
@@ -732,7 +732,7 @@ ${products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).
 • Подтвердить заказ
 
 ---
-Elektromos - Система управления заказами`
+Moreelektriki - Система управления заказами`
             );
             console.log('✅ Email администратору отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -744,7 +744,7 @@ Elektromos - Система управления заказами`
         try {
             const clientEmailResult = await sendEmail(
                 guestInfo.email,
-                'Ваш заказ успешно создан - Elektromos',
+                'Ваш заказ успешно создан - Moreelektriki',
                 `Здравствуйте, ${guestInfo.name}!
 
 Ваш заказ успешно создан!
@@ -759,10 +759,7 @@ ${products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб.`).jo
 
 Мы свяжемся с вами в ближайшее время для подтверждения заказа.
 
-С уважением,
-Команда Elektromos
-Телефон: +7 (903) 797-06-99
-Email: infoelektromosru@gmail.com`
+С уважением, Команда MoreElektriki Телефон: +7 (926) 552-21-73 Email: moreelektriki@gmail.com`
             );
             console.log('✅ Email клиенту отправлен:', clientEmailResult);
         } catch (emailError) {
@@ -831,7 +828,7 @@ exports.handleGuestPaymentNotification = async (req, res) => {
         console.log('📧 Отправляем email уведомление администратору об оплате гостевого заказа...');
         try {
             const adminEmailResult = await sendEmail(
-                'infoelektromosru@gmail.com',
+                'moreelektriki@gmail.com',
                 '✅ Гостевой заказ оплачен #' + order._id,
                 `ЗАКАЗ ОПЛАЧЕН
 
@@ -858,7 +855,7 @@ ${order.products.map(p => `• ${p.name} (${p.quantity} шт.) - ${p.price} ру
 • Связаться с клиентом для уточнения доставки
 
 ---
-Elektromos - Система управления заказами`
+Moreelektriki - Система управления заказами`
             );
             console.log('✅ Email администратору об оплате гостевого заказа отправлен:', adminEmailResult);
         } catch (emailError) {
@@ -870,7 +867,7 @@ Elektromos - Система управления заказами`
         try {
             const clientEmailResult = await sendEmail(
                 order.guestInfo.email,
-                'Ваш заказ оплачен - Elektromos',
+                'Ваш заказ оплачен - Morelektriki',
                 `Здравствуйте, ${order.guestInfo.name}!
 
 Ваш заказ успешно оплачен!
@@ -885,10 +882,7 @@ ${order.products.map(p => `- ${p.name} (${p.quantity} шт.) - ${p.price} руб
 
 Мы начнем обработку вашего заказа в ближайшее время.
 
-С уважением,
-Команда Elektromos
-Телефон: +7 (903) 797-06-99
-Email: infoelektromosru@gmail.com`
+С уважением, Команда MoreElektriki Телефон: +7 (926) 552-21-73 Email: moreelektriki@gmail.com`
             );
             console.log('✅ Email клиенту об оплате отправлен:', clientEmailResult);
         } catch (emailError) {
