@@ -1,0 +1,93 @@
+name: Daily Products Update
+
+on:
+  schedule:
+    - cron: '0 5 * * *' # 05:00 UTC (08:00 Москва)
+  workflow_dispatch:
+
+jobs:
+  update-all-products:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        working-directory: MoreElecktriki-backaned-main/web-app-service
+        run: npm install
+
+      - name: Update Denkirs
+        working-directory: MoreElecktriki-backaned-main/web-app-service
+        run: timeout 6m node uploads/denkirsUpload.js || echo "Timeout, skipping"
+        continue-on-error: true
+
+      - name: Update Favourite Light
+        working-directory: MoreElecktriki-backaned-main/web-app-service
+        run: timeout 6m node uploads/favouriteLightUpload.js || echo "Timeout, skipping"
+        continue-on-error: true
+
+      - name: Update Arte Lamp
+        working-directory: MoreElecktriki-backaned-main/web-app-service
+        run: timeout 6m node uploads/artelampUpload.js || echo "Timeout, skipping"
+        continue-on-error: true
+
+      - name: Update Odeon Light
+        working-directory: MoreElecktriki-backaned-main/web-app-service
+        run: timeout 6m node uploads/odeonUpload.js || echo "Timeout, skipping"
+        continue-on-error: true
+
+      - name: Update Elektrostandart
+        working-directory: MoreElecktriki-backaned-main/web-app-service
+        run: timeout 6m node uploads/elektroStandartUpload.js || echo "Timeout, skipping"
+        continue-on-error: true
+
+      - name: Update Kink Light
+        working-directory: MoreElecktriki-backaned-main/web-app-service
+        run: timeout 6m node uploads/kinklightUpload.js || echo "Timeout, skipping"
+        continue-on-error: true
+
+      - name: Update Lightstar
+        working-directory: MoreElecktriki-backaned-main/web-app-service
+        run: timeout 6m node uploads/lightStarUpload.js || echo "Timeout, skipping"
+        continue-on-error: true
+
+      - name: Update Lumion
+        working-directory: MoreElecktriki-backaned-main/web-app-service
+        run: timeout 6m node uploads/lumionUpload.js || echo "Timeout, skipping"
+        continue-on-error: true
+
+      - name: Update Maytoni
+        working-directory: MoreElecktriki-backaned-main/web-app-service
+        run: timeout 6m node uploads/maytoniUpload.js || echo "Timeout, skipping"
+        continue-on-error: true
+
+      - name: Update Novotech Light
+        working-directory: MoreElecktriki-backaned-main/web-app-service
+        run: timeout 6m node uploads/novotechLightUpload.js || echo "Timeout, skipping"
+        continue-on-error: true
+
+      - name: Update Sonex
+        working-directory: MoreElecktriki-backaned-main/web-app-service
+        run: timeout 6m node uploads/sonexUpload.js || echo "Timeout, skipping"
+        continue-on-error: true
+
+      - name: Update ST Luce
+        working-directory: MoreElecktriki-backaned-main/web-app-service
+        run: timeout 6m node uploads/stluceUpload.js || echo "Timeout, skipping"
+        continue-on-error: true
+
+      - name: Update Voltum
+        working-directory: MoreElecktriki-backaned-main/web-app-service
+        run: timeout 6m node uploads/voltumUpload.js || echo "Timeout, skipping"
+        continue-on-error: true
+
+      - name: Update Werkel
+        working-directory: MoreElecktriki-backaned-main/web-app-service
+        run: timeout 6m node uploads/werkelUpload.js || echo "Timeout, skipping"
+        continue-on-error: true
